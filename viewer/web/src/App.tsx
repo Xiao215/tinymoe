@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, useCompare, useFetch, useRun, type RunData } from "./api";
+import { RunPicker } from "./components/RunPicker";
 import { Timeline } from "./components/Timeline";
 import { Anatomy } from "./panels/Anatomy";
 import { Attention } from "./panels/Attention";
@@ -102,43 +103,22 @@ export function App() {
             </nav>
           )}
           <div className="topbar-meta">
-            <div className="meta">
-              <label>run</label>
-              <select value={run ?? ""} onChange={(e) => setHash(`${e.target.value}/${panel.id}`)} aria-label="run">
-                {(runs.data ?? []).map((r) => (
-                  <option key={r.id} value={r.id} title={r.stages.map((s) => s.name).join(" → ") || "no stages"}>
-                    {r.id} · {r.stages.length} stage{r.stages.length === 1 ? "" : "s"}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <RunPicker
+              runs={runs.data ?? []}
+              run={run}
+              compare={compare}
+              onOpen={(id) => {
+                setCompare((c) => c.filter((x) => x !== id));
+                setHash(`${id}/${panel.id}`);
+              }}
+              onToggleCompare={(id) => setCompare((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}
+            />
             {current && (
               <div className="meta">
                 <label>stage</label>
                 <span>{current.name}</span>
               </div>
             )}
-            <details className="compare meta">
-              <summary>
-                <label>compare</label>
-                <span>{compare.length ? compare.join(", ") : "none"}</span>
-              </summary>
-              <div className="compare-menu">
-                {(runs.data ?? []).filter((r) => r.id !== run).length === 0 && <span className="muted">no other runs</span>}
-                {(runs.data ?? [])
-                  .filter((r) => r.id !== run)
-                  .map((r) => (
-                    <label key={r.id}>
-                      <input
-                        type="checkbox"
-                        checked={compare.includes(r.id)}
-                        onChange={() => setCompare((c) => (c.includes(r.id) ? c.filter((x) => x !== r.id) : [...c, r.id]))}
-                      />
-                      {r.id}
-                    </label>
-                  ))}
-              </div>
-            </details>
             <span className={`live${data.live ? " on" : ""}`} title={data.live ? "receiving live updates" : "not connected"}>
               <i />
               {data.live ? "live" : "offline"}
