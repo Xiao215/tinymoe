@@ -31,3 +31,6 @@ web:
 
 bench-mac:
 	$(PY) tinylab bench configs/pipeline/mac.yaml
+
+hardcode:
+	$(PY) pytest -q tests/test_hardcode.py
