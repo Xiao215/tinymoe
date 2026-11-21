@@ -51,9 +51,10 @@ export function Heatmap({ values, rows, cols, height, min, max, xName, yName, on
         left: "center",
         bottom: 0,
         itemHeight: 120,
-        inRange: { color: ["#f7fbff", "#6baed6", "#08306b"] },
+        inRange: { color: ["#eef5fd", "#9ec5f4", "#3987e5", "#184f95", "#0d366b"] },
+        itemWidth: 10,
       },
-      series: [{ type: "heatmap", data: cells, progressive: 0 }],
+      series: [{ type: "heatmap", data: cells, progressive: 0, itemStyle: { borderWidth: 1, borderColor: "transparent" } }],
     };
   }, [values, rows, cols, min, max, xName, yName, digits]);
   const onClick = useMemo(

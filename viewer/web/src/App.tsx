@@ -9,7 +9,9 @@ import { LogitLens } from "./panels/LogitLens";
 import { MoE } from "./panels/MoE";
 import { Report } from "./panels/Report";
 import { Rollouts } from "./panels/Rollouts";
+import { Overview } from "./panels/Overview";
 import { Scalars } from "./panels/Scalars";
+import { stageStarts } from "./lib";
 import { useTheme } from "./theme";
 import type { SnapshotEntry } from "./types";
 
@@ -19,26 +21,31 @@ export interface PanelProps {
   /** internals snapshot chosen with the timeline scrubber (null = latest) */
   snapshot: SnapshotEntry | null;
   compare: string[];
+  open: (panel: string) => void;
 }
 
 interface PanelDef {
   id: string;
   title: string;
   render: (p: PanelProps) => ReactNode;
+  /** driven by the snapshot scrubber */
+  snap?: boolean;
 }
 
 function ScalarsPanel({ data, compare }: PanelProps) {
   const others = useCompare(compare);
-  return <Scalars records={data.records} timeline={data.timeline} compare={others} />;
+  const starts = useMemo(() => stageStarts(data.manifest), [data.manifest]);
+  return <Scalars records={data.records} timeline={data.timeline} compare={others} starts={starts} />;
 }
 
 export const PANELS: PanelDef[] = [
-  { id: "scalars", title: "Scalars", render: (p) => <ScalarsPanel {...p} /> },
-  { id: "anatomy", title: "Anatomy", render: (p) => <Anatomy run={p.run} snapshot={p.snapshot} version={p.data.version} /> },
-  { id: "attention", title: "Attention", render: (p) => <Attention run={p.run} snapshot={p.snapshot} version={p.data.version} /> },
-  { id: "moe", title: "MoE", render: (p) => <MoE run={p.run} data={p.data} snapshot={p.snapshot} /> },
-  { id: "lens", title: "Logit lens", render: (p) => <LogitLens run={p.run} data={p.data} snapshot={p.snapshot} /> },
-  { id: "embeddings", title: "Embeddings", render: (p) => <Embeddings run={p.run} data={p.data} snapshot={p.snapshot} /> },
+  { id: "overview", title: "Overview", render: (p) => <Overview run={p.run} data={p.data} onOpen={p.open} /> },
+  { id: "metrics", title: "Metrics", render: (p) => <ScalarsPanel {...p} /> },
+  { id: "anatomy", title: "Anatomy", snap: true, render: (p) => <Anatomy run={p.run} snapshot={p.snapshot} version={p.data.version} /> },
+  { id: "attention", title: "Attention", snap: true, render: (p) => <Attention run={p.run} snapshot={p.snapshot} version={p.data.version} /> },
+  { id: "moe", title: "MoE", snap: true, render: (p) => <MoE run={p.run} data={p.data} snapshot={p.snapshot} /> },
+  { id: "lens", title: "Logit lens", snap: true, render: (p) => <LogitLens run={p.run} data={p.data} snapshot={p.snapshot} /> },
+  { id: "embeddings", title: "Embeddings", snap: true, render: (p) => <Embeddings run={p.run} data={p.data} snapshot={p.snapshot} /> },
   {
     id: "generations",
     title: "Generations",
@@ -47,6 +54,8 @@ export const PANELS: PanelDef[] = [
   { id: "rollouts", title: "RL rollouts", render: (p) => <Rollouts run={p.run} data={p.data} /> },
   { id: "report", title: "Report", render: (p) => <Report run={p.run} data={p.data} /> },
 ];
+
+const ALIASES: Record<string, string> = { scalars: "metrics" };
 
 function useHashState(): [string, (v: string) => void] {
   const [hash, setHash] = useState(() => window.location.hash.slice(1));
@@ -62,7 +71,8 @@ export function App() {
   const { dark, toggle } = useTheme();
   const runs = useFetch("runs", api.runs);
   const [hash, setHash] = useHashState();
-  const [hashRun, hashPanel] = hash.split("/");
+  const [hashRun, rawPanel] = hash.split("/");
+  const hashPanel = ALIASES[rawPanel ?? ""] ?? rawPanel;
   const run = hashRun || runs.data?.[0]?.id || null;
   const panel = PANELS.find((p) => p.id === hashPanel) ?? PANELS[0]!;
   const [compare, setCompare] = useState<string[]>([]);
@@ -71,56 +81,85 @@ export function App() {
   const [selected, setSelected] = useState<number | null>(null);
   useEffect(() => setSelected(null), [run]);
   const snapshot = selected !== null ? (internals[selected] ?? null) : (internals[internals.length - 1] ?? null);
+  const open = (id: string) => run && setHash(`${run}/${id}`);
+  const current = data.manifest?.stages.find((s) => s.status === "running") ?? data.manifest?.stages[data.manifest.stages.length - 1];
 
   return (
     <div className="app">
-      <header>
-        <h1>TinyMoE</h1>
-        <select value={run ?? ""} onChange={(e) => setHash(`${e.target.value}/${panel.id}`)} aria-label="run">
-          {(runs.data ?? []).map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.id} ({r.stages.map((s) => s.name).join(" → ") || "no stages"})
-            </option>
-          ))}
-        </select>
-        <details className="compare">
-          <summary>compare ({compare.length})</summary>
-          {(runs.data ?? [])
-            .filter((r) => r.id !== run)
-            .map((r) => (
-              <label key={r.id}>
-                <input
-                  type="checkbox"
-                  checked={compare.includes(r.id)}
-                  onChange={() => setCompare((c) => (c.includes(r.id) ? c.filter((x) => x !== r.id) : [...c, r.id]))}
-                />
-                {r.id}
-              </label>
-            ))}
-        </details>
-        <span className={`live ${data.live ? "on" : ""}`} title="live updates">
-          {data.live ? "● live" : "○ offline"}
-        </span>
-        <button onClick={toggle} aria-label="toggle theme">
-          {dark ? "☀ light" : "☾ dark"}
-        </button>
+      <header className="topbar">
+        <div className="topbar-row">
+          <div className="brand">
+            <b>TinyMoE</b>
+            <span>lab</span>
+          </div>
+          {run && (
+            <nav className="tabs">
+              {PANELS.map((p) => (
+                <button key={p.id} className={p.id === panel.id ? "active" : ""} onClick={() => open(p.id)}>
+                  {p.title}
+                </button>
+              ))}
+            </nav>
+          )}
+          <div className="topbar-meta">
+            <div className="meta">
+              <label>run</label>
+              <select value={run ?? ""} onChange={(e) => setHash(`${e.target.value}/${panel.id}`)} aria-label="run">
+                {(runs.data ?? []).map((r) => (
+                  <option key={r.id} value={r.id} title={r.stages.map((s) => s.name).join(" → ") || "no stages"}>
+                    {r.id} · {r.stages.length} stage{r.stages.length === 1 ? "" : "s"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {current && (
+              <div className="meta">
+                <label>stage</label>
+                <span>{current.name}</span>
+              </div>
+            )}
+            <details className="compare meta">
+              <summary>
+                <label>compare</label>
+                <span>{compare.length ? compare.join(", ") : "none"}</span>
+              </summary>
+              <div className="compare-menu">
+                {(runs.data ?? []).filter((r) => r.id !== run).length === 0 && <span className="muted">no other runs</span>}
+                {(runs.data ?? [])
+                  .filter((r) => r.id !== run)
+                  .map((r) => (
+                    <label key={r.id}>
+                      <input
+                        type="checkbox"
+                        checked={compare.includes(r.id)}
+                        onChange={() => setCompare((c) => (c.includes(r.id) ? c.filter((x) => x !== r.id) : [...c, r.id]))}
+                      />
+                      {r.id}
+                    </label>
+                  ))}
+              </div>
+            </details>
+            <span className={`live${data.live ? " on" : ""}`} title={data.live ? "receiving live updates" : "not connected"}>
+              <i />
+              {data.live ? "live" : "offline"}
+            </span>
+            <button className="icon-btn" onClick={toggle} aria-label={dark ? "switch to light theme" : "switch to dark theme"} title={dark ? "light theme" : "dark theme"}>
+              {dark ? "☀" : "☾"}
+            </button>
+          </div>
+        </div>
       </header>
-      {runs.error && <p className="error">{runs.error}</p>}
-      {data.error && <p className="error">{data.error}</p>}
-      {!run && runs.data && <p className="muted">No runs found. Start one with `tinymoe pipeline configs/pipeline/smoke.yaml`.</p>}
-      {run && (
-        <>
-          <Timeline timeline={data.timeline} snapshots={internals} selected={selected} onSelect={setSelected} />
-          <nav className="tabs">
-            {PANELS.map((p) => (
-              <button key={p.id} className={p.id === panel.id ? "active" : ""} onClick={() => setHash(`${run}/${p.id}`)}>
-                {p.title}
-              </button>
-            ))}
-          </nav>
-          <main>{panel.render({ run, data, snapshot, compare })}</main>
-        </>
-      )}
+      <main key={dark ? "dark" : "light"}>
+        {runs.error && <p className="error">{runs.error}</p>}
+        {data.error && <p className="error">{data.error}</p>}
+        {!run && runs.data && <p className="muted empty">No runs found. Start one with `tinymoe pipeline configs/pipeline/smoke.yaml`.</p>}
+        {run && (
+          <>
+            {panel.snap && <Timeline timeline={data.timeline} snapshots={internals} selected={selected} onSelect={setSelected} />}
+            {panel.render({ run, data, snapshot, compare, open })}
+          </>
+        )}
+      </main>
     </div>
   );
 }

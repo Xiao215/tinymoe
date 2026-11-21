@@ -1,87 +1,143 @@
-import type { EChartsOption, LineSeriesOption } from "echarts";
 import { useMemo, useState } from "react";
-import { Chart } from "../components/Chart";
-import { defaultGroups, metricKeys, series, stageAreas, type MetricGroup } from "../lib";
+import { MetricChart, type XMode } from "../components/MetricChart";
+import { defaultGroups, metricKeys, type MetricGroup } from "../lib";
 import type { MetricRecord, Span } from "../types";
 
 interface Props {
   records: MetricRecord[];
   timeline: Span[];
   compare: Record<string, MetricRecord[]>;
+  starts: Record<string, number>;
 }
 
-function groupOption(
-  group: MetricGroup,
-  records: MetricRecord[],
-  timeline: Span[],
-  compare: Record<string, MetricRecord[]>,
-): EChartsOption {
-  const lines: LineSeriesOption[] = group.keys.map((key, i) => ({
-    name: key,
-    type: "line",
-    showSymbol: false,
-    sampling: "lttb",
-    connectNulls: true,
-    data: series(records, key),
-    ...(i === 0 ? { markArea: stageAreas(timeline) } : {}),
-  }));
-  for (const [run, recs] of Object.entries(compare)) {
-    for (const key of group.keys) {
-      const data = series(recs, key);
-      if (data.length) {
-        lines.push({
-          name: `${key} [${run}]`,
-          type: "line",
-          showSymbol: false,
-          lineStyle: { type: "dashed" },
-          data,
-        });
-      }
+type YMode = "auto" | "linear" | "log";
+
+/** "loss" (substring, case-insensitive) or "/^val\/.*math$/" (regex). Bad regex = no filter. */
+function matcher(filter: string): (k: string) => boolean {
+  const f = filter.trim();
+  if (!f) return () => true;
+  const re = /^\/(.+)\/([a-z]*)$/.exec(f);
+  if (re) {
+    try {
+      const r = new RegExp(re[1]!, re[2] || "i");
+      return (k) => r.test(k);
+    } catch {
+      return () => true;
     }
   }
-  const sparse = lines.every((l) => (l.data as unknown[]).length < 30);
-  for (const l of lines) l.showSymbol = sparse;
-  return {
-    animation: false,
-    tooltip: { trigger: "axis", valueFormatter: (v) => (typeof v === "number" ? v.toPrecision(4) : String(v)) },
-    legend: { type: "scroll", top: 0, textStyle: { fontSize: 10 } },
-    grid: { left: 50, right: 16, top: 34, bottom: 40 },
-    dataZoom: [{ type: "inside" }, { type: "slider", height: 14, bottom: 6 }],
-    xAxis: { type: "value", name: "global step", nameLocation: "middle", nameGap: 22, min: "dataMin", max: "dataMax" },
-    yAxis: { type: group.log ? "log" : "value", scale: true },
-    series: lines,
-  };
+  const lower = f.toLowerCase();
+  return (k) => k.toLowerCase().includes(lower);
 }
 
-/** Every scalar across the whole pipeline, grouped; other runs overlay as dashed lines. */
-export function Scalars({ records, timeline, compare }: Props) {
-  const [filter, setFilter] = useState("");
-  const keys = useMemo(() => metricKeys(records), [records]);
-  const groups = useMemo(() => {
-    const all = defaultGroups(keys);
-    if (!filter) return all;
-    const f = filter.toLowerCase();
-    return all
-      .map((g) => ({ ...g, keys: g.keys.filter((k) => k.toLowerCase().includes(f) || g.title.toLowerCase().includes(f)) }))
-      .filter((g) => g.keys.length);
-  }, [keys, filter]);
-
-  if (!records.length) return <p className="muted">No metrics logged yet.</p>;
+function Seg<T extends string>({ value, options, onChange, label }: { value: T; options: T[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div>
-      <div className="toolbar">
-        <input placeholder="filter metrics (e.g. loss, moe, pass1)" value={filter} onChange={(e) => setFilter(e.target.value)} />
-        <span className="muted">
-          {keys.length} metrics · {records.length} records
-        </span>
-      </div>
-      <div className="grid">
-        {groups.map((g) => (
-          <section className="card" key={g.title}>
-            <h3>{g.title}</h3>
-            <Chart option={groupOption(g, records, timeline, compare)} />
-          </section>
+    <span className="ctl">
+      {label}
+      <span className="seg" role="group" aria-label={label}>
+        {options.map((o) => (
+          <button key={o} className={o === value ? "on" : ""} onClick={() => onChange(o)}>
+            {o}
+          </button>
         ))}
+      </span>
+    </span>
+  );
+}
+
+/** Every scalar across the whole pipeline as small multiples, grouped in a sidebar tree;
+ * other runs overlay as dashed lines. */
+export function Scalars({ records, timeline, compare, starts }: Props) {
+  const [filter, setFilter] = useState("");
+  const [section, setSection] = useState<string | null>(null);
+  const [x, setX] = useState<XMode>("step");
+  const [y, setY] = useState<YMode>("auto");
+  const [smoothing, setSmoothing] = useState(0.5);
+  const keys = useMemo(() => metricKeys(records), [records]);
+  const all = useMemo(() => defaultGroups(keys), [keys]);
+  const groups = useMemo(() => {
+    const ok = matcher(filter);
+    return all
+      .map((g): MetricGroup => (ok(g.title) ? g : { ...g, keys: g.keys.filter(ok) }))
+      .filter((g) => g.keys.length);
+  }, [all, filter]);
+  const sections = useMemo(() => {
+    const m = new Map<string, { groups: number; keys: number }>();
+    for (const g of groups) {
+      const e = m.get(g.section) ?? { groups: 0, keys: 0 };
+      e.groups += 1;
+      e.keys += g.keys.length;
+      m.set(g.section, e);
+    }
+    return [...m.entries()];
+  }, [groups]);
+  const shown = section ? groups.filter((g) => g.section === section) : groups;
+  const canTime = Object.keys(starts).length > 0;
+
+  if (!records.length) return <p className="muted empty">No metrics logged yet.</p>;
+  return (
+    <div className="metrics-layout">
+      <aside className="tree">
+        <input placeholder="filter (substring or /regex/)" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="filter metrics" />
+        <ul>
+          <li>
+            <button className={section === null ? "on" : ""} onClick={() => setSection(null)}>
+              all <span className="num">{groups.reduce((a, g) => a + g.keys.length, 0)}</span>
+            </button>
+          </li>
+          {sections.map(([name, c]) => (
+            <li key={name}>
+              <button className={section === name ? "on" : ""} onClick={() => setSection(section === name ? null : name)}>
+                {name}/ <span className="num">{c.keys}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="muted" style={{ fontSize: 11, marginTop: 14 }}>
+          {keys.length} metrics · {records.length} records
+          <br />
+          click a legend entry to hide it · shift+scroll zooms
+        </p>
+      </aside>
+      <div>
+        <div className="toolbar">
+          <Seg label="x" value={x} options={canTime ? ["step", "time"] : ["step"]} onChange={setX} />
+          <Seg label="y" value={y} options={["auto", "linear", "log"]} onChange={setY} />
+          <label className="ctl">
+            smoothing
+            <input type="range" min={0} max={0.95} step={0.05} value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} />
+            <span className="num">{smoothing.toFixed(2)}</span>
+          </label>
+          {Object.keys(compare).length > 0 && <span className="ctl">overlay: {Object.keys(compare).join(", ")} (dashed)</span>}
+        </div>
+        <div className="chips">
+          {shown.map((g) => (
+            <button
+              key={g.title}
+              className="chip"
+              onClick={() => document.getElementById(`metric-${g.title}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            >
+              {g.title} <b>{g.keys.length}</b>
+            </button>
+          ))}
+        </div>
+        <div className="grid3">
+          {shown.map((g) => (
+            <div key={g.title} id={`metric-${g.title}`}>
+              <MetricChart
+                title={g.title}
+                hint={g.hint}
+                keys={g.keys}
+                records={records}
+                timeline={timeline}
+                x={x}
+                starts={starts}
+                log={y === "log" || (y === "auto" && !!g.log)}
+                smoothing={smoothing}
+                compare={compare}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

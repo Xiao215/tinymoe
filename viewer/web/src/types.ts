@@ -118,7 +118,9 @@ export interface ArrayResponse {
 export interface ManifestStage {
   name: string;
   status: string;
-  init?: string | null;
+  started?: string;
+  finished?: string;
+  init_from?: string | null;
   checkpoint?: string | null;
   summary?: Record<string, number | null>;
   config?: Record<string, unknown>;
@@ -128,6 +130,7 @@ export interface Manifest {
   run_id: string;
   name: string;
   created?: string;
+  git?: Record<string, unknown> | null;
   hardware?: Record<string, unknown>;
   runtime?: Record<string, unknown>;
   stages: ManifestStage[];

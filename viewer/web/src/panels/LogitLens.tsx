@@ -3,6 +3,7 @@ import { useSnapshot, useSnapshotSeries, type RunData } from "../api";
 import { Heatmap } from "../components/Heatmap";
 import { Empty, Picker, snapLabel } from "../components/Picker";
 import { heatColor } from "../lib";
+import { sequentialInk } from "../theme";
 import type { InternalsSnapshot, LensPosition, SnapshotEntry } from "../types";
 
 interface Props {
@@ -64,7 +65,7 @@ export function LogitLens({ run, data, snapshot }: Props) {
                   <tr key={l}>
                     <th>{layers[l]}</th>
                     {top.map(([tok, p], k) => (
-                      <td key={k} className={tok === lp.target ? "target" : ""} style={{ background: heatColor(p) }} title={p.toFixed(4)}>
+                      <td key={k} className={tok === lp.target ? "target" : ""} style={{ background: heatColor(p), color: sequentialInk(p) }} title={p.toFixed(4)}>
                         {show(tok)} <small>{(100 * p).toFixed(0)}%</small>
                       </td>
                     ))}

@@ -135,8 +135,9 @@ server-sent events while a run trains, and offline on finished runs. Panels:
 
 | Panel | Shows |
 |---|---|
-| timeline | all stages on one global-step axis; a snapshot scrubber drives the internals panels |
-| Scalars | loss per data source, val loss, LR, grad norm, update/weight ratio, throughput, MFU, MoE balance, math pass@1/pass@k per difficulty, think length, DPO margins, RL reward/KL/clip/entropy, distillation; overlay of other runs |
+| Overview | the landing page: run status with stage ETA; headline numbers with their change; one card per stage (steps, time, pass@1 vs the previous stage, the number that says whether the stage did its job); key charts; math pass@1 by difficulty; an event feed with evals, stage changes and detected stalls, fp16 overflow skips, loss spikes and dead experts |
+| timeline | all stages on one global-step axis; a snapshot scrubber drives the internals panels (Anatomy, Attention, MoE, Logit lens, Embeddings) |
+| Metrics | small multiples grouped by area (filter by substring or `/regex/`), x axis as global step or wall clock, linear/log, EMA smoothing; loss per data source, val loss, LR, grad norm, update/weight ratio, throughput, MFU, MoE balance, math pass@1/pass@k per difficulty, think length, DPO margins, RL reward/KL/clip/entropy, distillation; overlay of other runs |
 | Anatomy | the layer stack from the model config: heads coloured by attention entropy, experts by load, residual norms; click a layer for details |
 | Attention | per layer/head heatmaps on probe prompts and token-to-token arcs |
 | MoE | load (layer × expert and over time), tokens coloured by expert, specialisation by token type, co-activation, router bias, dead-expert alerts, RL routing-replay mismatch |

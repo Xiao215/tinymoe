@@ -24,7 +24,7 @@ export function Timeline({ timeline, snapshots, selected, onSelect }: Props) {
               style={{ left: `${(s.start / total) * 100}%`, width: `${Math.max(width, 0.5)}%`, background: stageColor(s.name) }}
               title={`${s.name}: global steps ${s.start}–${s.end} (${s.status})`}
             >
-              <span>{s.name}</span>
+              <span>{width > 4 ? s.name : ""}</span>
             </div>
           );
         })}
@@ -48,7 +48,7 @@ export function Timeline({ timeline, snapshots, selected, onSelect }: Props) {
             onChange={(e) => onSelect(Number(e.target.value))}
             aria-label="snapshot scrubber"
           />
-          <span className="muted">
+          <span className="num">
             {current ? `${current.stage} · step ${current.step} · global ${current.gstep}` : "latest"}
             {` (${(selected ?? snapshots.length - 1) + 1}/${snapshots.length})`}
           </span>
