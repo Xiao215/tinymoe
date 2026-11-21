@@ -1,0 +1,13 @@
+# Preference tuning recipe (dpo.loss: dpo | ipo | simpo).
+stage: {name: dpo, init_from: auto}
+train:
+  optimizer: adamw
+  lr: 1e-4
+  schedule: wsd
+  warmup_steps: 10
+  decay_frac: 0.3
+  weight_decay: 0.0
+  examples_per_step: 32
+dpo:
+  loss: dpo
+  beta: 0.1

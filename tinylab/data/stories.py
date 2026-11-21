@@ -23,9 +23,27 @@ log = logging.getLogger(__name__)
 
 # Subjects used for "Write a short story about a <subject>." instructions and checks.
 SUBJECTS = (
-    "cat", "dog", "bird", "fish", "girl", "boy", "bear", "rabbit", "frog", "duck",
-    "tree", "ball", "car", "boat", "cake", "flower", "dragon", "princess", "king", "mouse",
-)  # fmt: skip
+    "cat",
+    "dog",
+    "bird",
+    "fish",
+    "girl",
+    "boy",
+    "bear",
+    "rabbit",
+    "frog",
+    "duck",
+    "tree",
+    "ball",
+    "car",
+    "boat",
+    "cake",
+    "flower",
+    "dragon",
+    "princess",
+    "king",
+    "mouse",
+)
 
 _NAMES = ("Tom", "Lily", "Sam", "Mia", "Ben", "Anna", "Max", "Sue", "Tim", "Lucy")
 _FEELINGS = ("happy", "sad", "scared", "excited", "curious", "tired", "proud")

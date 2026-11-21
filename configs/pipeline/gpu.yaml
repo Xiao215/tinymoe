@@ -1,0 +1,44 @@
+# GPU box pipeline (one 80 GB GPU, or several with torchrun; DDP keeps tokens_per_step
+# global). Same stages and code as mac.yaml, larger model and budget. Verify the sizing
+# on your hardware first: `tinylab bench configs/pipeline/gpu.yaml`.
+name: gpu
+groups: {hardware: cuda_80gb, model: moe_gpu, student: student_dense, data: default}
+overrides:
+  train:
+    seq_len: 1024
+    tokens_per_step: 262144
+    micro_batch_size: auto
+    auto_batch_max: 64
+    log_interval: 10
+    eval_interval: 1000
+    ckpt_interval: 500
+  eval:
+    math_per_bucket: 32
+    passk_samples: 8
+    max_new_tokens: 128
+    story_prompts: 16
+    batch_size: 128
+  snapshot: {interval: 500}
+  midtrain:
+    context_extension: {seq_len: 4096, steps: 200, micro_batch_size: 8, tokens_per_step: 262144}
+stages:
+  - name: pretrain
+    overrides: {train: {max_steps: 10000, warmup_steps: 500}}
+  - name: midtrain
+    overrides: {train: {max_steps: 2000, eval_interval: 1000}}
+  - name: sft
+    overrides:
+      train: {max_steps: 1000, eval_interval: 500, tokens_per_step: 131072}
+      sft: {n_math: 40000, n_story: 10000}
+  - name: dpo
+    overrides:
+      train: {max_steps: 300, eval_interval: 150, seq_len: 512, examples_per_step: 64}
+      dpo: {n_pairs: 16000, model_sampled_prompts: 1024}
+  - name: grpo
+    overrides:
+      train: {max_steps: 200, eval_interval: 50, ckpt_interval: 25}
+      grpo: {prompts_per_rollout: 32, group_size: 16, max_new_tokens: 160}
+  - name: distill
+    overrides:
+      train: {max_steps: 1000, eval_interval: 500, tokens_per_step: 131072}
+      distill: {student_pretrain_steps: 2000, teacher_prompts: 4000, onpolicy_steps: 300}

@@ -161,9 +161,14 @@ class Transformer(nn.Module):
     def new_cache(self, batch: int, max_len: int, n_layers: int | None = None) -> KVCache:
         p = self.embed.weight
         return KVCache(
-            n_layers or self.cfg.n_layers, batch, self.cfg.n_kv_heads, max_len, head_dim(self.cfg),
-            p.device, torch.float32,
-        )  # fmt: skip
+            n_layers or self.cfg.n_layers,
+            batch,
+            self.cfg.n_kv_heads,
+            max_len,
+            head_dim(self.cfg),
+            p.device,
+            torch.float32,
+        )
 
     # ---------------------------------------------------------------- forward
     def _masks(

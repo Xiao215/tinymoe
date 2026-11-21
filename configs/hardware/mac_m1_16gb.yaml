@@ -1,8 +1,10 @@
-# Apple M1 Pro, 16 GB unified memory. M1 has no native bf16: precision=auto benchmarks
-# fp16 vs fp32 and enables dynamic loss scaling if fp16 wins. Budget leaves ~6 GB for
-# the OS, the viewer and a browser.
+# Apple M1 Pro, 16 GB unified memory. M1 has no native bf16. fp16 autocast + dynamic loss
+# scaling is pinned rather than `auto`: the M1 Pro's fp16 matmul speedup (1.07-1.21x across
+# processes) straddles low_precision_min_speedup, so `auto` flipped between runs, and fp16
+# measured ~7% faster end to end with ~13% less memory (D16). hardware.precision=fp32 is
+# the tested fallback. The budget leaves ~6 GB for the OS, the viewer and a browser.
 device: auto
-precision: auto
+precision: fp16
 compile: "off"
 fused_optimizer: auto
 sdpa_backend: auto

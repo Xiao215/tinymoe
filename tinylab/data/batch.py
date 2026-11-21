@@ -41,6 +41,13 @@ class Batch:
         return int((self.labels != IGNORE_INDEX).sum().item())
 
 
+def shuffled_index(index: int, n: int, seed: int) -> int:
+    """Map a global sample index to an item: a fresh permutation of ``range(n)`` per epoch,
+    seeded by ``(seed, epoch)``, so any row is computable without iterator state."""
+    epoch, pos = divmod(index, n)
+    return int(np.random.default_rng([seed, epoch]).permutation(n)[pos])
+
+
 def doc_layout(tokens: np.ndarray, bos_id: int) -> tuple[np.ndarray, np.ndarray]:
     """Doc ids and per-doc positions for a packed row (a new doc starts at each BOS)."""
     starts = tokens == bos_id

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 
 import pytest
 import torch
@@ -12,18 +13,29 @@ from tinylab.model.hooks import Capture
 from tinylab.model.moe import MoE
 from tinylab.model.rope import inv_frequencies
 from tinylab.model.transformer import Transformer, generate, generate_speculative
+from tinylab.train.autobatch import worst_case_routing
 
 V = 97
 
 
 def make_cfg(use_moe: bool = True, **kw: object) -> ModelConfig:
     base = {
-        "vocab_size": V, "d_model": 32, "n_layers": 3, "n_heads": 4, "n_kv_heads": 2,
-        "ffn_hidden": 64, "max_seq_len": 64,
-        "moe": {"enabled": use_moe, "n_experts": 6, "top_k": 2, "expert_hidden": 16,
-                "n_dense_layers": 1},
+        "vocab_size": V,
+        "d_model": 32,
+        "n_layers": 3,
+        "n_heads": 4,
+        "n_kv_heads": 2,
+        "ffn_hidden": 64,
+        "max_seq_len": 64,
+        "moe": {
+            "enabled": use_moe,
+            "n_experts": 6,
+            "top_k": 2,
+            "expert_hidden": 16,
+            "n_dense_layers": 1,
+        },
         "mtp": {"depth": 1},
-    }  # fmt: skip
+    }
     base.update(kw)
     cfg: ModelConfig = section_from_dict(ModelConfig, base)
     return cfg
@@ -155,6 +167,67 @@ def test_moe_dispatch_gradients_agree() -> None:
         torch.testing.assert_close(a, b, atol=1e-5, rtol=1e-4)
 
 
+@pytest.mark.parametrize("capacity", [None, 3.0])
+def test_padded_overflow_is_exact_and_bounded(
+    capacity: float | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A collapsed router (most tokens on one expert) must not widen the padded buffer past
+    ``padded_limit`` x balanced load; the overflow runs per expert and matches ``loop``."""
+    cfg = make_cfg(True)
+    cfg.moe.capacity_factor = capacity
+    n, k, e = 18, cfg.moe.top_k, cfg.moe.n_experts
+    hot = torch.zeros(n, dtype=torch.long)  # every token's first choice is expert 0
+    override = torch.stack([hot, torch.arange(n) % (e - 1) + 1], 1).view(2, 9, k)
+    widths: list[int] = []
+    real_bmm = torch.bmm
+
+    def bmm(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        widths.append(a.shape[1])
+        return real_bmm(a, b)
+
+    monkeypatch.setattr(torch, "bmm", bmm)
+    torch.manual_seed(0)
+    x = torch.randn(2, 9, cfg.d_model)
+    outs = {}
+    for mode in ("loop", "padded"):
+        cfg.moe.dispatch = mode  # type: ignore[assignment]
+        torch.manual_seed(1)
+        moe = MoE(cfg, 1)
+        for p in moe.parameters():
+            torch.nn.init.normal_(p, 0, 0.3)
+        outs[mode] = moe(x, override)[0]
+    torch.testing.assert_close(outs["padded"], outs["loop"], atol=1e-5, rtol=1e-4)
+    assert widths and max(widths) <= math.ceil(cfg.moe.padded_limit * n * k / e) < n
+
+
+def test_worst_case_routing_pins_padded_width(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Autobatch probes with padded buffers at their cap; numerics must not change."""
+    torch.manual_seed(0)
+    cfg = make_cfg(True)
+    cfg.moe.dispatch = "padded"  # type: ignore[assignment]
+    model = Transformer(cfg)
+    x = torch.randint(0, V, (2, 9))
+    widths: list[int] = []
+    real_bmm = torch.bmm
+
+    def bmm(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        widths.append(a.shape[1])
+        return real_bmm(a, b)
+
+    monkeypatch.setattr(torch, "bmm", bmm)
+    with torch.no_grad():
+        normal = model(x).logits
+        natural = max(widths)
+        widths.clear()
+        with worst_case_routing(model):
+            assert all(m.worst_case for m in model.moe_layers())
+            pinned = model(x).logits
+    assert not any(m.worst_case for m in model.moe_layers())
+    n, k, e = 18, cfg.moe.top_k, cfg.moe.n_experts
+    assert set(widths) == {math.ceil(cfg.moe.padded_limit * n * k / e)} and max(widths) >= natural
+    torch.testing.assert_close(pinned, normal, atol=1e-5, rtol=1e-4)
+
+
 def test_capacity_factor_drops_overflow() -> None:
     torch.manual_seed(0)
     cfg = make_cfg(True)
@@ -229,10 +302,20 @@ def test_routing_replay() -> None:
         make_cfg(True),
         make_cfg(False),
         make_cfg(True, tie_embeddings=False, qk_norm=False, head_dim=16),
-        make_cfg(True, moe={"enabled": True, "n_experts": 8, "top_k": 1, "n_shared_experts": 0,
-                            "expert_hidden": 8, "n_dense_layers": 0}, mtp={"depth": 2}),
+        make_cfg(
+            True,
+            moe={
+                "enabled": True,
+                "n_experts": 8,
+                "top_k": 1,
+                "n_shared_experts": 0,
+                "expert_hidden": 8,
+                "n_dense_layers": 0,
+            },
+            mtp={"depth": 2},
+        ),
     ],
-)  # fmt: skip
+)
 def test_param_count_formula(cfg: ModelConfig) -> None:
     m = Transformer(cfg)
     actual = sum(p.numel() for p in m.parameters())

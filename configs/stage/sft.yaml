@@ -1,0 +1,13 @@
+# SFT recipe: assistant-only loss, packed rows with per-conversation isolation.
+stage: {name: sft, init_from: auto}
+train:
+  optimizer: muon
+  lr: 1e-3
+  schedule: wsd
+  warmup_steps: 20
+  decay_frac: 0.3
+  weight_decay: 0.0
+sft:
+  think_traces: true
+  packing: true
+  lora: {enabled: false, rank: 16, alpha: 32.0}

@@ -13,11 +13,16 @@ from typing import Any, Protocol
 import torch
 
 from tinylab.config import BatchPlan
-from tinylab.data.batch import Batch
+
+
+class Movable(Protocol):
+    """Any batch type (``Batch``, DPO pair batches, RL rollouts) that can change device."""
+
+    def to(self, device: torch.device) -> Any: ...
 
 
 class RowSource(Protocol):
-    def batch(self, indices: Sequence[int]) -> Batch: ...
+    def batch(self, indices: Sequence[int]) -> Movable: ...
 
 
 def row_indices(step: int, micro: int, plan: BatchPlan, rank: int, offset: int = 0) -> range:
@@ -37,7 +42,7 @@ class RowProvider:
         self.device = device
         self.offset = offset
 
-    def batch(self, step: int, micro: int) -> Batch:
+    def batch(self, step: int, micro: int) -> Any:
         rows = row_indices(step, micro, self.plan, self.rank, self.offset)
         return self.source.batch(rows).to(self.device)
 

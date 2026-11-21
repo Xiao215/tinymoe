@@ -1,0 +1,43 @@
+# MacBook M1 Pro 16 GB pipeline (MPS, fp16 + loss scaling, 10 GB hard memory cap).
+# Sized with `tinylab bench configs/pipeline/mac.yaml` to about 8 h; measured numbers in
+# README.md. 14336 tokens/step = 28 rows of 512: autobatch picks micro batch 7 here (D16),
+# and 7 x 4 runs 20% faster than the 4 x 8 that 32 rows would force.
+name: mac
+groups: {hardware: mac_m1_16gb, model: moe_mac, student: student_dense, data: default}
+overrides:
+  train:
+    seq_len: 512
+    tokens_per_step: 14336
+    micro_batch_size: auto
+    auto_batch_max: 32
+    log_interval: 10
+    eval_interval: 500
+    ckpt_interval: 250
+  eval:
+    math_per_bucket: 16
+    passk_samples: 4
+    max_new_tokens: 96
+    story_prompts: 8
+    batch_size: 64
+  snapshot: {interval: 250}
+  midtrain:
+    context_extension: {seq_len: 1024, steps: 100, micro_batch_size: 2, tokens_per_step: 16384}
+stages:
+  - name: pretrain
+    overrides: {train: {max_steps: 2000, warmup_steps: 200}}
+  - name: midtrain
+    overrides: {train: {max_steps: 500, eval_interval: 250}}
+  - name: sft
+    overrides:
+      train: {max_steps: 300, eval_interval: 150, seq_len: 384, tokens_per_step: 12288}
+      sft: {n_math: 8000, n_story: 2000}
+  - name: dpo
+    overrides:
+      train: {max_steps: 150, eval_interval: 75, seq_len: 256, examples_per_step: 32}
+      dpo: {n_pairs: 4000, model_sampled_prompts: 384}
+  - name: grpo
+    overrides: {train: {max_steps: 60, eval_interval: 30, ckpt_interval: 15}, snapshot: {interval: 10}}
+  - name: distill
+    overrides:
+      train: {max_steps: 300, eval_interval: 150, seq_len: 384, tokens_per_step: 12288}
+      distill: {student_pretrain_steps: 600, teacher_prompts: 1000, onpolicy_steps: 100}

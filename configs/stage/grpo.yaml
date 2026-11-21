@@ -1,0 +1,24 @@
+# RL recipe. Step counts are in iterations (each = ppo_epochs x minibatches updates).
+stage: {name: grpo, init_from: auto}
+train:
+  optimizer: adamw
+  lr: 2e-5
+  schedule: constant
+  warmup_steps: 2
+  weight_decay: 0.0
+  grad_clip: 1.0
+  seq_len: 256
+  log_interval: 1
+  eval_interval: 25
+  ckpt_interval: 25
+grpo:
+  variant: grpo
+  group_size: 8
+  prompts_per_rollout: 16
+  ppo_epochs: 2
+  minibatches_per_epoch: 2
+  temperature: 1.0
+  max_new_tokens: 96
+  routing_replay: true
+  calibration: {enabled: true, samples_per_bucket: 16, low: 0.1, high: 0.7, max_buckets: 4}
+snapshot: {interval: 10}

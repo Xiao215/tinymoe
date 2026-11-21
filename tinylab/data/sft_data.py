@@ -17,7 +17,7 @@ import numpy as np
 
 from tinylab.config import DataConfig
 from tinylab.data import mathworld, stories
-from tinylab.data.batch import IGNORE_INDEX, Batch, stack_rows
+from tinylab.data.batch import IGNORE_INDEX, Batch, shuffled_index, stack_rows
 from tinylab.data.mathworld import Problem
 from tinylab.data.tokenizer import Message, Tokenizer, render_chat
 
@@ -154,9 +154,7 @@ class RowDataset:
         return len(self.rows)
 
     def _row(self, index: int) -> Row:
-        epoch, pos = divmod(index, len(self.rows))
-        perm = np.random.default_rng([self.seed, epoch]).permutation(len(self.rows))
-        return self.rows[int(perm[pos])]
+        return self.rows[shuffled_index(index, len(self.rows), self.seed)]
 
     def batch(self, indices: Sequence[int]) -> Batch:
         rows = [self._row(i) for i in indices]
@@ -179,7 +177,17 @@ def rows_to_batch(rows: Sequence[Row], isolate_docs: bool) -> Batch:
 def make_rows(
     tok: Tokenizer, examples: Sequence[ChatExample], seq_len: int, packing: bool, seed: int
 ) -> list[Row]:
-    encoded = encode(tok, examples, seq_len)
+    return rows_from_encoded(encode(tok, examples, seq_len), seq_len, packing, tok.pad_id, seed)
+
+
+def rows_from_encoded(
+    encoded: Sequence[tuple[list[int], list[int]]],
+    seq_len: int,
+    packing: bool,
+    pad_id: int,
+    seed: int,
+) -> list[Row]:
+    """Rows from already-tokenised ``(ids, loss mask)`` pairs (e.g. sampled teacher text)."""
     if packing:
-        return pack(encoded, seq_len, tok.pad_id, seed)
-    return pad(encoded, seq_len, tok.pad_id)
+        return pack(encoded, seq_len, pad_id, seed)
+    return pad(encoded, seq_len, pad_id)

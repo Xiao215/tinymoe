@@ -1,0 +1,14 @@
+# Mid-training recipe: the WSD decay phase on the high-quality mix, then context extension.
+stage: {name: midtrain, init_from: auto}
+train:
+  optimizer: muon
+  lr: 3e-3
+  schedule: wsd
+  warmup_steps: 0
+  decay_frac: 1.0
+  decay_shape: sqrt
+  z_loss_weight: 1e-4
+midtrain:
+  context_extension:
+    enabled: true
+    rope_scaling: {type: ntk}  # factor defaults to seq_len ratio; YaRN hurt tiny models (D10)

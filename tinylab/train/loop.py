@@ -124,6 +124,7 @@ class Trainer:
         units_name: str = "tokens",
         flops_per_unit: float | None = None,
         save_final: bool = True,
+        step_offset: int = 0,
     ) -> None:
         self.stage = stage
         self.raw_model = model
@@ -139,6 +140,7 @@ class Trainer:
         self.units_name = units_name
         self.flops_per_unit = flops_per_unit
         self.save_final = save_final
+        self.step_offset = step_offset  # logged step = offset + local step (multi-phase stages)
         self.optim: Optimizers = build_optimizer(model, cfg, runtime, lr)
         self.scaler = LossScaler(runtime.use_loss_scaling)
         self.params = [p for p in model.parameters() if p.requires_grad]
@@ -269,7 +271,7 @@ class Trainer:
         self.raw_model.train()
         result = TrainResult(step=self.start_step, checkpoint=None)
         if self.hooks.eval_at_start and self.start_step == 0 and self.hooks.evaluate:
-            result.eval_metrics = self._evaluate(0)
+            result.eval_metrics = self._evaluate(self.step_offset)
         t_last = time.perf_counter()
         units_at_last = self.units_seen
         for step in range(self.start_step, self.cfg.max_steps):
@@ -321,13 +323,19 @@ class Trainer:
                 mfu = self._mfu(rate)
                 if mfu is not None:
                     logged["mfu"] = mfu
-                self.logger.log_metrics(self.stage, step + 1, logged)
+                self.logger.log_metrics(self.stage, self.step_offset + step + 1, logged)
                 result.metrics = logged
                 log.info(
                     "[%s] step %d/%d loss %.4f lr %.2e gnorm %.2f %s/s %.0f",
-                    self.stage, step + 1, self.cfg.max_steps, logged.get("loss", float("nan")),
-                    logged["lr"], logged["grad_norm"], self.units_name, rate,
-                )  # fmt: skip
+                    self.stage,
+                    step + 1,
+                    self.cfg.max_steps,
+                    logged.get("loss", float("nan")),
+                    logged["lr"],
+                    logged["grad_norm"],
+                    self.units_name,
+                    rate,
+                )
             done = step + 1 == self.cfg.max_steps
             if (
                 self.hooks.snapshot
@@ -335,11 +343,11 @@ class Trainer:
                 and ((step + 1) % self.hooks.snapshot_interval == 0 or done)
             ):
                 if self.dist.is_main:
-                    self.hooks.snapshot(step + 1)
+                    self.hooks.snapshot(self.step_offset + step + 1)
                 self.recent_load = None
                 distributed.barrier()
             if self.hooks.evaluate and ((step + 1) % self.cfg.eval_interval == 0 or done):
-                result.eval_metrics = self._evaluate(step + 1)
+                result.eval_metrics = self._evaluate(self.step_offset + step + 1)
             if (step + 1) % self.cfg.ckpt_interval == 0 and not done:
                 self.save_checkpoint(step + 1)
         if self.save_final:

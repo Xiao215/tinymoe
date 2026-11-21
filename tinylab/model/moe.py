@@ -17,8 +17,14 @@ Load balancing (``moe.balance``)
 Dispatch
     Token->expert assignments are sorted by expert id. ``loop`` runs one grouped matmul per
     expert on its contiguous slice; ``padded`` scatters into an ``(E, C, d)`` tensor and
-    runs three batched matmuls (no Python loop; best when load is balanced). ``auto`` picks
-    ``padded`` when padding waste is small. Results return via ``index_add_``. Optional
+    runs three batched matmuls (no Python loop; best when load is balanced). The padded width
+    is capped at ``padded_limit`` x the balanced load, so a collapsed router cannot blow up
+    memory (an early-training spike once OOMed the Mac preset, docs/decisions.md D12); the
+    assignments past the cap - contiguous in sorted order - run through the per-expert path
+    for just the overloaded experts, so results stay exact. ``worst_case`` (set while
+    autobatch probes memory) pins the width at that cap: a fresh router is near-balanced,
+    and training must not later outgrow the micro batch the probe chose. ``auto`` picks
+    ``padded`` when padding waste is small. Results return via ``index_add_``. An optional
     capacity factor drops overflow tokens (GShard); the default never drops.
 
 Routing replay
@@ -63,6 +69,7 @@ class MoE(nn.Module):
         self.n_experts = m.n_experts
         self.top_k = m.top_k
         self.cfg = m
+        self.worst_case = False  # memory probing: padded buffers at their cap
         d, h = cfg.d_model, m.expert_hidden
         self.router = nn.Linear(d, m.n_experts, bias=False)
         self.w_gate = nn.Parameter(torch.empty(m.n_experts, d, h))
@@ -105,30 +112,45 @@ class MoE(nn.Module):
         starts = torch.cumsum(counts, 0) - counts
         rank = torch.arange(n * k, device=h.device) - starts[sorted_e]
         weight = gates.reshape(-1)[order].unsqueeze(-1)
-        counts_list = counts.tolist()  # one host sync per layer
+        full_counts = counts.tolist()  # one host sync per layer
+        counts_list = full_counts
         keep: torch.Tensor | None = None
         if self.cfg.capacity_factor is not None:
             cap = math.ceil(self.cfg.capacity_factor * n * k / self.n_experts)
             keep = rank < cap
-            counts_list = [min(c, cap) for c in counts_list]
+            counts_list = [min(c, cap) for c in full_counts]
         max_count = max(counts_list)
         mode = self.cfg.dispatch
         if mode == "auto":
-            mode = "padded" if max_count * self.n_experts <= 2 * n * k else "loop"
+            balanced = max_count * self.n_experts <= 2 * n * k
+            mode = "padded" if balanced or self.worst_case else "loop"
         xs = h[token]
         if mode == "padded":
-            pad = h.new_zeros(self.n_experts, max(max_count, 1), h.shape[-1])
-            if keep is None:
+            limit = math.ceil(self.cfg.padded_limit * n * k / self.n_experts)
+            width = max(limit if self.worst_case else min(max_count, limit), 1)
+            # width <= max_count <= cap, so rank < width already implies keep
+            sel = None if width >= max_count and keep is None else rank < width
+            pad = h.new_zeros(self.n_experts, width, h.shape[-1])
+            if sel is None:
                 pad[sorted_e, rank] = xs
             else:
-                pad[sorted_e[keep], rank[keep]] = xs[keep]
+                pad[sorted_e[sel], rank[sel]] = xs[sel]
             act = F.silu(torch.bmm(pad, self.w_gate)) * torch.bmm(pad, self.w_up)
             out_pad = torch.bmm(act, self.w_down)
-            if keep is None:
+            if sel is None:
                 ys = out_pad[sorted_e, rank]
             else:
-                ys = out_pad[sorted_e[keep], rank[keep]]
-                token, weight = token[keep], weight[keep]
+                ys_parts = [out_pad[sorted_e[sel], rank[sel]]]
+                tok_parts, w_parts = [token[sel]], [weight[sel]]
+                start = 0
+                for e, (c_full, c) in enumerate(zip(full_counts, counts_list, strict=True)):
+                    if c > width:  # overloaded expert: its tail runs unpadded
+                        tail = slice(start + width, start + c)
+                        ys_parts.append(self._expert(xs[tail], e))
+                        tok_parts.append(token[tail])
+                        w_parts.append(weight[tail])
+                    start += c_full
+                ys, token, weight = torch.cat(ys_parts), torch.cat(tok_parts), torch.cat(w_parts)
         else:
             if keep is not None:
                 xs, token, weight, sorted_e = xs[keep], token[keep], weight[keep], sorted_e[keep]

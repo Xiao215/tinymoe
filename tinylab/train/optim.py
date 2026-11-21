@@ -83,8 +83,9 @@ class Muon(torch.optim.Optimizer):
 
 
 def classify(name: str, p: nn.Parameter) -> str:
-    """'muon' (hidden matrices), 'decay' (other matrices), 'no_decay' (vectors, emb, router)."""
-    if p.ndim < 2:
+    """'muon' (hidden matrices), 'decay' (other matrices), 'no_decay' (vectors, router, LoRA
+    adapters: low-rank factors are neither "hidden matrices" for Muon nor decayed)."""
+    if p.ndim < 2 or "lora_" in name:
         return "no_decay"
     if name.endswith("embed.weight") or "router" in name:
         return "embed" if name.endswith("embed.weight") else "no_decay"
@@ -127,7 +128,11 @@ class Optimizers:
 
 
 def build_optimizer(
-    model: nn.Module, cfg: TrainConfig, runtime: Runtime, lr: float | None = None
+    model: nn.Module,
+    cfg: TrainConfig,
+    runtime: Runtime,
+    lr: float | None = None,
+    quiet: bool = False,
 ) -> Optimizers:
     """Param groups by role; Muon or AdamW for hidden matrices per ``cfg.optimizer``."""
     lr = cfg.lr if lr is None else lr
@@ -161,7 +166,8 @@ def build_optimizer(
         muon_lr = cfg.muon.lr if cfg.muon.lr is not None else lr
         opts.append(Muon(buckets["muon"], muon_lr, cfg.weight_decay, cfg.muon, ns_dtype))
     counts = {k: sum(p.numel() for p in v) for k, v in buckets.items()}
-    log.info("[optim] %s; params per group %s", "muon+adamw" if use_muon else "adamw", counts)
+    if not quiet:
+        log.info("[optim] %s; params per group %s", "muon+adamw" if use_muon else "adamw", counts)
     return Optimizers(opts)
 
 

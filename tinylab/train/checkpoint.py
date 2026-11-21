@@ -14,6 +14,7 @@ from typing import Any
 
 import torch
 
+from tinylab import hardware
 from tinylab.config import ModelConfig, section_from_dict, to_dict
 from tinylab.model.transformer import Transformer
 
@@ -29,7 +30,7 @@ def save(path: Path, payload: dict[str, Any]) -> Path:
 
 
 def load(path: Path) -> dict[str, Any]:
-    data: dict[str, Any] = torch.load(path, map_location="cpu", weights_only=False)
+    data: dict[str, Any] = torch.load(path, map_location=hardware.host_device(), weights_only=False)
     return data
 
 

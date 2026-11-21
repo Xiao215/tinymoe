@@ -1,0 +1,10 @@
+# Pre-training recipe: WSD stable phase only; the decay (annealing) runs in mid-training.
+stage: {name: pretrain, init_from: scratch}
+train:
+  optimizer: muon
+  lr: 3e-3
+  schedule: wsd
+  warmup_steps: 50
+  decay_frac: 0.0
+  weight_decay: 0.1
+  z_loss_weight: 1e-4

@@ -139,8 +139,10 @@ def test_shard_memmap_roundtrip(tok: Tokenizer, tmp_path: Path) -> None:
     assert isinstance(arr, np.memmap) and arr.dtype == np.uint16
     assert len(arr) == meta["n_tokens"]
     bos = np.where(arr == tok.bos_id)[0]
-    decoded = [tok.decode(arr[s + 1 : e].tolist()).removesuffix("<|eos|>") for s, e in
-               zip(bos, [*bos[1:], len(arr)], strict=True)]  # fmt: skip
+    decoded = [
+        tok.decode(arr[s + 1 : e].tolist()).removesuffix("<|eos|>")
+        for s, e in zip(bos, [*bos[1:], len(arr)], strict=True)
+    ]
     assert decoded == docs
 
 

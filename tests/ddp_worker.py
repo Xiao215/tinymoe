@@ -31,9 +31,15 @@ def main(out: Path) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         run_dir = Path(tmp)
         trainer = make_trainer(
-            run_dir, model, RowProvider(RandomRows(16), plan, info.rank, torch.device("cpu")),
-            runtime=cpu_runtime(), plan=plan, dist=info, max_steps=6, optimizer="muon",
-        )  # fmt: skip
+            run_dir,
+            model,
+            RowProvider(RandomRows(16), plan, info.rank, torch.device("cpu")),
+            runtime=cpu_runtime(),
+            plan=plan,
+            dist=info,
+            max_steps=6,
+            optimizer="muon",
+        )
         trainer.fit()
         flat = torch.cat([p.detach().flatten() for p in model.parameters()])
         bias = torch.cat([m.expert_bias for m in model.moe_layers()])

@@ -10,11 +10,12 @@ dependencies = [
     "tokenizers>=0.19",
     "datasets>=2.19",
     "pyyaml>=6.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
-[project.optional-dependencies]
-viewer = ["fastapi>=0.110", "uvicorn>=0.29"]
-cuda = []
+# `uv sync` installs the dev group by default, so a clean clone can run `make check`.
+[dependency-groups]
 dev = [
     "pytest>=8.0",
     "pytest-timeout>=2.3",
@@ -34,9 +35,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["tinylab", "viewer"]
-
-[tool.uv]
-default-groups = []
 
 [tool.ruff]
 line-length = 100

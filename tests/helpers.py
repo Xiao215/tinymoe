@@ -27,20 +27,33 @@ def cpu_runtime(
 ) -> Runtime:
     return hardware.resolve_runtime(
         HardwareConfig(
-            device="cpu", precision=precision, compile=compile_, compile_backend=backend,  # type: ignore[arg-type]
+            device="cpu",
+            precision=precision,
+            compile=compile_,
+            compile_backend=backend,  # type: ignore[arg-type]
             peak_tflops=1.0,
         )
-    )  # fmt: skip
+    )
 
 
 def tiny_model(moe: bool, seed: int = 0, **kw: Any) -> Transformer:
     base: dict[str, Any] = {
-        "vocab_size": V, "d_model": 32, "n_layers": 2, "n_heads": 4, "n_kv_heads": 2,
-        "ffn_hidden": 64, "max_seq_len": 32,
-        "moe": {"enabled": moe, "n_experts": 4, "top_k": 2, "expert_hidden": 32,
-                "n_dense_layers": 1},
+        "vocab_size": V,
+        "d_model": 32,
+        "n_layers": 2,
+        "n_heads": 4,
+        "n_kv_heads": 2,
+        "ffn_hidden": 64,
+        "max_seq_len": 32,
+        "moe": {
+            "enabled": moe,
+            "n_experts": 4,
+            "top_k": 2,
+            "expert_hidden": 32,
+            "n_dense_layers": 1,
+        },
         "mtp": {"depth": 1},
-    }  # fmt: skip
+    }
     base.update(kw)
     torch.manual_seed(seed)
     return Transformer(section_from_dict(ModelConfig, base))
@@ -96,9 +109,17 @@ def make_trainer(
 ) -> Trainer:
     cfg = section_from_dict(
         TrainConfig,
-        {"max_steps": 20, "warmup_steps": 0, "log_interval": 1, "eval_interval": 10_000,
-         "ckpt_interval": 10_000, "lr": 3e-3, "seq_len": 16, **train},
-    )  # fmt: skip
+        {
+            "max_steps": 20,
+            "warmup_steps": 0,
+            "log_interval": 1,
+            "eval_interval": 10_000,
+            "ckpt_interval": 10_000,
+            "lr": 3e-3,
+            "seq_len": 16,
+            **train,
+        },
+    )
     dist = dist or DistInfo()
     return Trainer(
         stage="test",

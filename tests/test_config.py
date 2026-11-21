@@ -14,6 +14,7 @@ from tinylab.config import (
     parse_override,
     split_overrides,
     to_dict,
+    yaml_load,
 )
 
 
@@ -39,6 +40,15 @@ def test_type_errors() -> None:
     assert from_dict({"train": {"lr": 1}}).train.lr == 1.0
     with pytest.raises(ConfigError):
         from_dict({"train": {"lr": True}})
+
+
+def test_yaml_12_scalars_for_overrides() -> None:
+    """``on``/``off``/``yes``/``no`` stay strings (YAML 1.1 made them booleans, which broke
+    the documented ``hardware.compile=off``); ``3e-4`` is a float."""
+    assert [yaml_load(s) for s in ("off", "on", "yes", "no")] == ["off", "on", "yes", "no"]
+    assert [yaml_load(s) for s in ("true", "False", "3e-4")] == [True, False, 3e-4]
+    cfg = load_stage_config(["hardware.compile=off", "hardware.enforce_memory_budget=false"])
+    assert cfg.hardware.compile == "off" and cfg.hardware.enforce_memory_budget is False
 
 
 def test_union_auto_batch() -> None:

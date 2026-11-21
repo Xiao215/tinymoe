@@ -1,0 +1,57 @@
+# CPU smoke pipeline: every stage, tiny model and data, a few minutes end to end.
+name: smoke
+groups: {hardware: cpu_smoke, model: smoke, student: student_smoke, data: smoke}
+overrides:
+  train:
+    seq_len: 128
+    tokens_per_step: 2048
+    micro_batch_size: 8
+    log_interval: 5
+    eval_interval: 40
+    ckpt_interval: 40
+  eval:
+    math_per_bucket: 4
+    passk_samples: 4
+    passk_k: 4
+    max_new_tokens: 40
+    story_prompts: 2
+    story_max_new_tokens: 48
+    lm_batches: 2
+    probe_math: 2
+    probe_max_new_tokens: 32
+    batch_size: 32
+  snapshot: {interval: 40, max_probe_tokens: 32, attention_max_tokens: 24}
+  midtrain:
+    context_extension: {seq_len: 256, steps: 10, micro_batch_size: 4, tokens_per_step: 2048, eval_batches: 2}
+stages:
+  - name: pretrain
+    overrides: {train: {max_steps: 120, warmup_steps: 10}}
+  - name: midtrain
+    overrides: {train: {max_steps: 40}}
+  - name: sft
+    overrides:
+      train: {max_steps: 60, warmup_steps: 5}
+      sft: {n_math: 800, n_story: 150}
+  - name: dpo
+    overrides:
+      train: {max_steps: 30, warmup_steps: 3, examples_per_step: 16}
+      dpo: {n_pairs: 400}
+  - name: grpo
+    overrides:
+      train: {max_steps: 4, eval_interval: 4, ckpt_interval: 4}
+      grpo:
+        group_size: 4
+        prompts_per_rollout: 8
+        max_new_tokens: 40
+        calibration: {samples_per_bucket: 4}
+      snapshot: {interval: 2}
+  - name: distill
+    overrides:
+      train: {max_steps: 16, eval_interval: 16, warmup_steps: 2}
+      distill:
+        student_pretrain_steps: 30
+        teacher_prompts: 48
+        teacher_samples_per_prompt: 2
+        onpolicy_steps: 4
+        onpolicy_prompts_per_step: 8
+        onpolicy_max_new_tokens: 32

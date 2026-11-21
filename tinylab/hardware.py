@@ -267,6 +267,23 @@ def matmul_tflops(
     return 2 * n**3 * iters / elapsed / 1e12
 
 
+def best_tflops(
+    device: torch.device, dtypes: dict[str, torch.dtype], rounds: int = 3, n: int = 2048
+) -> dict[str, float]:
+    """Best-of-``rounds`` matmul throughput per dtype, measured in interleaved rounds.
+
+    A single short timing is dominated by clock ramp-up and scheduling noise: on an M1 Pro
+    one 1024-squared run reported fp16 at 1.26x fp32 and the next at 1.00x. Interleaving the
+    dtypes exposes each to the same thermal state, and the best round is the least noisy
+    estimate of what the hardware can do.
+    """
+    best = dict.fromkeys(dtypes, 0.0)
+    for _ in range(rounds):
+        for name, dtype in dtypes.items():
+            best[name] = max(best[name], matmul_tflops(device, dtype, n=n))
+    return best
+
+
 # ------------------------------------------------------------------- resolution
 
 
@@ -287,8 +304,9 @@ def _resolve_precision(
         return "fp32", f"precision=fp32 (auto: no fast low-precision path on {device.type})"
     if not cfg.precision_bench:
         return "fp32", "precision=fp32 (auto, benchmarking disabled)"
-    base = matmul_tflops(device, torch.float32)
-    speeds = {name: matmul_tflops(device, _DTYPES[name]) / base for name in caps.autocast_dtypes}
+    dtypes = {"fp32": torch.float32, **{n: _DTYPES[n] for n in caps.autocast_dtypes}}
+    tflops = best_tflops(device, dtypes)
+    speeds = {name: tflops[name] / tflops["fp32"] for name in caps.autocast_dtypes}
     ok = {k: v for k, v in speeds.items() if v >= cfg.low_precision_min_speedup}
     if not ok:
         return "fp32", f"precision=fp32 (auto: low precision not faster, {speeds})"
@@ -339,6 +357,9 @@ def resolve_runtime(cfg: HardwareConfig, local_rank: int = 0) -> Runtime:
     else:
         decisions.append(f"sdpa={sdpa} (available: {','.join(caps.sdpa_backends)})")
 
+    if cfg.memory_budget_gb and cfg.enforce_memory_budget:
+        decisions.append(cap_memory(device, cfg.memory_budget_gb))
+
     measured = None
     if cfg.peak_tflops is None:
         dtype = _DTYPES[precision]
@@ -383,6 +404,27 @@ def reset_peak_memory(device: torch.device) -> None:
         torch.cuda.reset_peak_memory_stats(device)
 
 
+def cap_memory(device: torch.device, budget_gb: float) -> str:
+    """Make allocations beyond the budget raise OOM instead of swapping.
+
+    Unified-memory Macs happily page GPU buffers to disk, which turns an oversized batch
+    into a frozen machine rather than an error. Capping the process (MPS: fraction of the
+    recommended working set; CUDA: fraction of device memory) restores the OOM signal
+    that ``micro_batch_size: auto`` and the trainer rely on.
+    """
+    if device.type == _MPS:
+        total = float(torch.mps.recommended_max_memory())
+        frac = min(max(budget_gb * 1e9 / total, 0.05), 2.0)
+        torch.mps.set_per_process_memory_fraction(frac)
+        return f"memory cap {budget_gb:.1f} GB (mps fraction {frac:.2f} of {total / 1e9:.1f} GB)"
+    if device.type == _CUDA:
+        total = float(torch.cuda.get_device_properties(device).total_memory)
+        frac = min(budget_gb * 1e9 / total, 1.0)
+        torch.cuda.set_per_process_memory_fraction(frac, device)
+        return f"memory cap {budget_gb:.1f} GB (cuda fraction {frac:.2f})"
+    return f"memory budget {budget_gb:.1f} GB (advisory on {device.type}: checked via RSS)"
+
+
 def process_rss_bytes() -> int:
     """Peak resident set size of this process (bytes; macOS reports bytes, Linux KiB)."""
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -401,6 +443,11 @@ def memory_bytes(device: torch.device) -> dict[str, int]:
         return {"allocated": int(torch.mps.current_allocated_memory()), "peak": driver}
     rss = process_rss_bytes()
     return {"allocated": rss, "peak": rss}
+
+
+def host_device() -> torch.device:
+    """Host memory: where checkpoints are staged before moving to the run device."""
+    return torch.device(_CPU)
 
 
 def has_memory_stats(device: torch.device) -> bool:

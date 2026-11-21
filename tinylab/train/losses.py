@@ -1,4 +1,5 @@
-"""Shared losses: next-token CE (+ MoE aux, MTP, z-loss), per-source breakdown, log-probs."""
+"""Shared losses: next-token CE (+ MoE aux, MTP, z-loss), per-source breakdown, log-probs,
+and the token-level KL used by distillation."""
 
 from __future__ import annotations
 
@@ -100,3 +101,16 @@ def sequence_logprobs(
     safe = labels.clamp_min(0)
     out = logp.gather(-1, safe.unsqueeze(-1)).squeeze(-1)
     return out * (labels != IGNORE_INDEX)
+
+
+def token_kl(
+    p_logits: torch.Tensor, q_logits: torch.Tensor, temperature: float = 1.0
+) -> torch.Tensor:
+    """Per-position ``KL(p || q)`` over the full vocabulary at ``temperature``, in fp32.
+
+    ``p = teacher`` is forward KL (mean-seeking word-level KD, Hinton et al., 2015);
+    ``p = student`` is reverse KL (mode-seeking, MiniLLM / GKD). Shape = logits.shape[:-1].
+    """
+    lp = (p_logits.float() / temperature).log_softmax(-1)
+    lq = (q_logits.float() / temperature).log_softmax(-1)
+    return (lp.exp() * (lp - lq)).sum(-1)

@@ -4,7 +4,7 @@ The viewer reads exactly these files, so the layout is a contract (``SCHEMA_VERS
 
 * ``manifest.json``   config, git hash, hardware, stage lineage, checkpoint paths
 * ``metrics.jsonl``   one JSON object per (stage, step) with scalar metrics
-* ``snapshots/<stage>/<step:08d>/data.json`` (+ ``arrays.npz``)  instrumentation
+* ``snapshots/<stage>/<step:08d>/<name>.json`` (+ ``<name>.npz``)  data, generations
 * ``artifacts/``      reports, tables, calibration results
 
 All writes are atomic (tmp file + rename) or append-only, so a live viewer never sees a
@@ -19,6 +19,7 @@ import logging
 import math
 import os
 import subprocess
+import sys
 import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -30,12 +31,31 @@ SCHEMA_VERSION = 1
 log = logging.getLogger(__name__)
 
 
+class _StderrHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Console handler that writes to the *current* ``sys.stderr``.
+
+    ``logging.StreamHandler()`` binds the stream object at construction. When the stream
+    is replaced and closed later (pytest capture, notebooks, a CLI embedded in another
+    tool), every record then fails with "I/O operation on closed file"."""
+
+    def __init__(self) -> None:
+        super().__init__(sys.stderr)
+
+    @property
+    def stream(self) -> Any:
+        return sys.stderr
+
+    @stream.setter
+    def stream(self, value: Any) -> None:
+        pass  # always the current sys.stderr
+
+
 def setup_logging(level: str = "INFO", log_file: Path | None = None) -> None:
     """Configure std logging once: console + optional file handler."""
     root = logging.getLogger()
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", "%H:%M:%S")
     if not any(getattr(h, "_tinylab", False) for h in root.handlers):
-        handler = logging.StreamHandler()
+        handler = _StderrHandler()
         handler.setFormatter(fmt)
         handler._tinylab = True  # type: ignore[attr-defined]
         root.addHandler(handler)
@@ -237,18 +257,23 @@ class RunLogger:
         step: int,
         data: Mapping[str, Any],
         arrays: Mapping[str, np.ndarray] | None = None,
+        name: str = "data",
     ) -> Path | None:
+        """Write ``<name>.json`` (+ ``<name>.npz``) under ``snapshots/<stage>/<step>/``.
+
+        Different producers (internals, generations, rollouts) use different names, so
+        an eval and a snapshot at the same step never overwrite each other."""
         if not self.enabled:
             return None
         target = self.run_dir / "snapshots" / stage / f"{step:08d}"
         target.mkdir(parents=True, exist_ok=True)
         if arrays:
-            tmp = target / f".arrays.tmp{os.getpid()}.npz"
+            tmp = target / f".{name}.tmp{os.getpid()}.npz"
             payload_arrays: dict[str, Any] = {k: np.asarray(v) for k, v in arrays.items()}
             np.savez_compressed(tmp, **payload_arrays)
-            tmp.replace(target / "arrays.npz")
+            tmp.replace(target / f"{name}.npz")
         payload = {"schema_version": SCHEMA_VERSION, "stage": stage, "step": step, **data}
-        write_json_atomic(target / "data.json", payload, indent=None)
+        write_json_atomic(target / f"{name}.json", payload, indent=None)
         return target
 
     # ---------------------------------------------------------------- artifacts

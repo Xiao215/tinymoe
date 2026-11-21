@@ -83,6 +83,22 @@ def test_accelerator_precision_paths() -> None:
         assert rt.use_loss_scaling == (rt.precision == "fp16")
 
 
+def test_precision_probe_interleaves_and_keeps_best_round(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One slow (cold-clock) round must not decide the precision: rounds are interleaved
+    across dtypes and the best round per dtype is kept."""
+    calls: list[torch.dtype] = []
+    noisy = iter([1.0, 0.5, 2.0, 2.4, 2.0, 2.2])  # fp32, fp16 per round; round 1 is cold
+
+    def fake(device: torch.device, dtype: torch.dtype, n: int = 1024, iters: int = 10) -> float:
+        calls.append(dtype)
+        return next(noisy)
+
+    monkeypatch.setattr(hardware, "matmul_tflops", fake)
+    best = hardware.best_tflops(torch.device("cpu"), {"fp32": torch.float32, "fp16": torch.float16})
+    assert calls == [torch.float32, torch.float16] * 3
+    assert best == {"fp32": 2.0, "fp16": 2.4}
+
+
 def test_rng_preserved() -> None:
     hardware.seed_everything(3)
     with hardware.preserved_rng():
@@ -113,7 +129,7 @@ def test_run_logger(tmp_path: Path) -> None:
     assert line["loss"] == 2.0 and line["bad"] is None
     snap = tmp_path / "snapshots" / "pretrain" / "00000010"
     assert json.loads((snap / "data.json").read_text())["x"] == [1, 2]
-    assert np.load(snap / "arrays.npz")["arr"].shape == (2, 2)
+    assert np.load(snap / "data.npz")["arr"].shape == (2, 2)
 
 
 def test_disabled_logger_writes_nothing(tmp_path: Path) -> None:
@@ -127,3 +143,18 @@ def test_info_cli(capsys: pytest.CaptureFixture[str]) -> None:
     out = json.loads(capsys.readouterr().out)
     assert "cpu" in out["backends"]
     assert out["runtime"]["precision"] == "fp32"
+
+
+def test_memory_budget_cap_and_forced_off() -> None:
+    """The budget becomes a hard cap where supported (advisory on CPU) unless disabled."""
+    on = hardware.resolve_runtime(
+        HardwareConfig(device="cpu", precision="fp32", memory_budget_gb=4.0)
+    )
+    assert any("memory budget 4.0 GB (advisory on cpu" in d for d in on.decisions)
+    off = hardware.resolve_runtime(
+        HardwareConfig(
+            device="cpu", precision="fp32", memory_budget_gb=4.0, enforce_memory_budget=False
+        )
+    )
+    assert not any("memory" in d for d in off.decisions)
+    assert hardware.cap_memory(torch.device("cpu"), 2.0).startswith("memory budget 2.0 GB")

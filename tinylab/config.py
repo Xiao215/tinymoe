@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import dataclasses
 import difflib
-import math
 import os
 import re
 import types
@@ -41,7 +40,10 @@ class ConfigError(ValueError):
 
 
 class _Loader(yaml.SafeLoader):
-    """SafeLoader that also reads ``3e-4`` as a float (YAML 1.1 requires ``3.0e-4``)."""
+    """SafeLoader with YAML 1.2 scalars where 1.1 surprises: ``3e-4`` is a float (1.1
+    requires ``3.0e-4``), and only ``true``/``false`` are booleans. In YAML 1.1 ``on``,
+    ``off``, ``yes`` and ``no`` are booleans too, so the override ``hardware.compile=off``
+    would arrive as ``False`` instead of the option ``"off"``."""
 
 
 _Loader.add_implicit_resolver(
@@ -55,6 +57,16 @@ _Loader.add_implicit_resolver(
         re.X,
     ),
     list("-+0123456789."),
+)
+
+
+_BOOL = "tag:yaml.org,2002:bool"
+_Loader.yaml_implicit_resolvers = {
+    first: [(tag, rx) for tag, rx in resolvers if tag != _BOOL]
+    for first, resolvers in _Loader.yaml_implicit_resolvers.items()
+}
+_Loader.add_implicit_resolver(
+    _BOOL, re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF")
 )
 
 
@@ -90,6 +102,8 @@ class HardwareConfig:
     matmul_precision: Literal["highest", "high", "medium"] = "high"
     num_threads: int | None = None
     memory_budget_gb: float | None = None  # used by bench + micro_batch_size=auto
+    enforce_memory_budget: bool = True  # hard per-process cap where the backend supports it
+    autobatch_headroom: float = 0.85  # fraction of the budget the auto micro-batch may use
     peak_tflops: float | None = None  # for MFU; None -> measured matmul peak
     dist_backend: Literal["auto", "nccl", "gloo"] = "auto"
     deterministic: bool = False
@@ -126,6 +140,8 @@ class MoEConfig:
     z_loss_weight: float = 0.0
     capacity_factor: float | None = None  # None -> no token dropping
     dispatch: Literal["auto", "loop", "padded"] = "auto"  # see model/moe.py
+    # padded dispatch: buffer width <= padded_limit x balanced load; overflow takes the loop
+    padded_limit: float = 1.5
     router_init_std: float | None = None  # None -> model.init_std
 
 
@@ -277,6 +293,7 @@ class EvalConfig:
         default_factory=lambda: ["Write a short story about a dog."]
     )
     probe_max_new_tokens: int = 96
+    batch_size: int = 64  # generation batch for evaluation
     seed: int = 4242
 
 
@@ -291,25 +308,39 @@ class SnapshotConfig:
     embedding_tokens: list[str] = field(
         default_factory=lambda: [
             *[str(d) for d in range(10)],
-            "+", "-", "*", "=", " the", " cat", " dog", " happy", " sad", " big", " small",
-            " girl", " boy", " Answer",
+            "+",
+            "-",
+            "*",
+            "=",
+            " the",
+            " cat",
+            " dog",
+            " happy",
+            " sad",
+            " big",
+            " small",
+            " girl",
+            " boy",
+            " Answer",
         ]
-    )  # fmt: skip
+    )
     generations: bool = True
 
 
 @dataclass
 class StageConfig:
     name: Literal["pretrain", "midtrain", "sft", "dpo", "grpo", "distill"] = "pretrain"
-    init_from: str = "auto"  # auto = previous stage in manifest | <stage name> | scratch
+    init_from: str = "auto"  # auto = previous stage in manifest | <stage name> | scratch | x.pt
 
 
 @dataclass
 class ContextExtensionConfig:
+    """RoPE context extension. ``rope_scaling.factor <= 1`` means "seq_len / train.seq_len"."""
+
     enabled: bool = True
     seq_len: int = 1024
     rope_scaling: RopeScalingConfig = field(
-        default_factory=lambda: RopeScalingConfig(type="ntk", factor=4.0)
+        default_factory=lambda: RopeScalingConfig(type="ntk", factor=0.0)
     )
     steps: int = 200
     lr: float = 1e-4
@@ -421,9 +452,10 @@ class DistillConfig:
 
     modes: list[str] = field(default_factory=lambda: ["baseline", "offpolicy", "logit", "onpolicy"])
     student_pretrain_steps: int = 300
-    student_lr: float = 1e-3
+    student_lr: float = 1e-3  # pre-training LR of the shared student base
     teacher_prompts: int = 1000
     teacher_samples_per_prompt: int = 4
+    teacher_temperature: float = 0.8
     kd_temperature: float = 1.0
     kd_ce_weight: float = 0.0  # mix hard-label CE into logit KD
     onpolicy_steps: int = 100
@@ -438,7 +470,7 @@ class BenchConfig:
     steps: int = 6
     warmup: int = 2
     snapshot_overhead: bool = True
-    generation_tokens: int = 32
+    prompt_tokens: int = 32  # typical chat/math prompt length for generation estimates
 
 
 @dataclass
@@ -724,8 +756,9 @@ def validate(cfg: RunConfig) -> None:
     ce = cfg.midtrain.context_extension
     if ce.enabled and ce.seq_len < t.seq_len:
         errors.append("midtrain.context_extension.seq_len must be >= train.seq_len")
-    if cfg.stage.init_from not in ("auto", "scratch", *STAGE_ORDER):
-        errors.append(f"stage.init_from must be auto|scratch|{'|'.join(STAGE_ORDER)}")
+    init = cfg.stage.init_from
+    if init not in ("auto", "scratch", *STAGE_ORDER) and not init.endswith(".pt"):
+        errors.append(f"stage.init_from must be auto|scratch|{'|'.join(STAGE_ORDER)}|<path>.pt")
     if errors:
         raise ConfigError("invalid config:\n  - " + "\n  - ".join(errors))
 
@@ -808,7 +841,3 @@ def derive_batch(global_units: int, unit: int, micro_batch_size: int, world_size
 
 def head_dim(m: ModelConfig) -> int:
     return m.head_dim or m.d_model // m.n_heads
-
-
-def ceil_div(a: int, b: int) -> int:
-    return math.ceil(a / b)
