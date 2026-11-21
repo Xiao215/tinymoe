@@ -1,0 +1,19 @@
+# Real runs: TinyStories (streamed + cached) and a large MathWorld.
+cache_dir: data_cache
+seed: 1234
+tokenizer: {vocab_size: 8192, train_docs_per_source: 30000, min_frequency: 2}
+stories:
+  source: hf
+  hf_path: roneneldan/TinyStories
+  num_train_docs: 200000
+  num_val_docs: 2000
+  max_chars: 2000
+mathworld:
+  num_train_docs: 200000
+  num_val_docs: 2000
+  digits: [1, 2, 3]
+  steps: [1, 2, 3, 4]
+  max_mul_operand: 12
+pretrain_mix: {stories: 0.6, math: 0.4}
+midtrain_mix: {stories: 0.3, math: 0.2, math_hq: 0.5}
+doc_mask: false

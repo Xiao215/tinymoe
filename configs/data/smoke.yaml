@@ -1,0 +1,14 @@
+# Tiny, offline, deterministic data for CI and the smoke pipeline.
+cache_dir: data_cache
+seed: 1234
+tokenizer: {vocab_size: 512, train_docs_per_source: 800, min_frequency: 2}
+stories: {source: synthetic, num_train_docs: 2000, num_val_docs: 100}
+mathworld:
+  num_train_docs: 2000
+  num_val_docs: 100
+  digits: [1, 2]
+  steps: [1, 2]
+  max_mul_operand: 9
+pretrain_mix: {stories: 0.5, math: 0.5}
+midtrain_mix: {stories: 0.3, math: 0.2, math_hq: 0.5}
+doc_mask: false

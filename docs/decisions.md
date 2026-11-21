@@ -33,3 +33,21 @@ On this M1 Pro that selects fp16 (1.26x).
 `compile: auto` enables compile only when the device is CUDA *and* a probe compile
 succeeds; MoE dispatch has data-dependent shapes, so compile gives little on MPS/CPU.
 `compile: on` forces it anywhere, falling back to eager if the probe fails.
+
+## D7 — Synthetic stories for smoke/CI, TinyStories (streamed) for real runs
+`data.stories.source: synthetic|hf`. The smoke pipeline must run offline in minutes, so it
+uses a deterministic template story generator. Real runs stream only `num_train_docs`
+TinyStories rows and cache them as JSONL; download failure falls back to synthetic stories
+with a warning (`fallback_to_synthetic`, on by default).
+
+## D8 — Random-window packing over flat shards
+Pre-training rows are random `seq_len+1` windows over the concatenated `<bos> doc <eos>`
+stream, with the window chosen by an RNG seeded from `(seed, global_row_index)`. This is
+nanoGPT-style packing; it makes resume and DDP sharding trivial (no loader state beyond the
+step counter). Intra-document masking is optional (`data.doc_mask`).
+
+## D9 — Verifier strictness
+`Answer: N` must be the only non-empty line after the single `</think>`; answers inside
+(closed or unclosed) think blocks never count; hedged/multiple answers parse as None;
+non-ASCII digits and > 12 digits are rejected. Correctness (parsed == answer) and format are
+reported separately so RL can weight them independently.
