@@ -58,18 +58,18 @@ def test_resume_is_bit_identical(tmp_path: Path) -> None:
     )
     full.fit()
 
-    class Crash(RuntimeError):
+    class CrashError(RuntimeError):
         pass
 
     def crash(step: int) -> None:
-        raise Crash
+        raise CrashError
 
     hooks = Hooks(snapshot=crash, snapshot_interval=7)
     part = make_trainer(
         tmp_path / "b", tiny_model(True), RowProvider(RandomRows(16), _plan(), 0, _cpu()),
         hooks=hooks, ckpt_interval=6, plan=_plan(), **kw,
     )  # fmt: skip
-    with pytest.raises(Crash):
+    with pytest.raises(CrashError):
         part.fit()
     resumed = make_trainer(
         tmp_path / "b", tiny_model(True, seed=99), RowProvider(RandomRows(16), _plan(), 0, _cpu()),
