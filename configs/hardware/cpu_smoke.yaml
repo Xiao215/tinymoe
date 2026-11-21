@@ -1,0 +1,7 @@
+# CI / smoke: CPU, fp32, eager. Deterministic and fast to start.
+device: cpu
+precision: fp32
+compile: "off"
+fused_optimizer: auto
+sdpa_backend: auto
+num_threads: 4

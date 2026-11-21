@@ -1,0 +1,8 @@
+# 80 GB GPU(s) (A100/H100). Launch multi-GPU with torchrun; DDP uses NCCL.
+device: auto
+precision: auto
+compile: auto
+fused_optimizer: auto
+sdpa_backend: auto
+memory_budget_gb: 76.0
+dist_backend: auto

@@ -1,0 +1,7 @@
+# Single 24 GB GPU (e.g. RTX 3090/4090, A10). bf16 autocast, torch.compile.
+device: auto
+precision: auto
+compile: auto
+fused_optimizer: auto
+sdpa_backend: auto
+memory_budget_gb: 22.0

@@ -1,0 +1,7 @@
+# Detect everything: best accelerator, auto precision (bf16 on native-bf16 GPUs,
+# benchmarked fp16-vs-fp32 elsewhere), compile only where recommended.
+device: auto
+precision: auto
+compile: auto
+fused_optimizer: auto
+sdpa_backend: auto

@@ -1,0 +1,9 @@
+# Apple M1 Pro, 16 GB unified memory. M1 has no native bf16: precision=auto benchmarks
+# fp16 vs fp32 and enables dynamic loss scaling if fp16 wins. Budget leaves ~6 GB for
+# the OS, the viewer and a browser.
+device: auto
+precision: auto
+compile: "off"
+fused_optimizer: auto
+sdpa_backend: auto
+memory_budget_gb: 10.0
