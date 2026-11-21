@@ -1,1 +1,1 @@
-"""FastAPI backend for the TinyLab viewer."""
+"""FastAPI backend for the TinyMoE viewer."""

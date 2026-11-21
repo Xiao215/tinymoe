@@ -1,5 +1,5 @@
 [project]
-name = "tinylab"
+name = "tinymoe"
 version = "0.1.0"
 description = "End-to-end LLM lab: pre-training, mid-training, SFT, DPO, GRPO-family RL and distillation on a small MoE transformer, with a live viewer."
 readme = "README.md"
@@ -27,14 +27,14 @@ dev = [
 ]
 
 [project.scripts]
-tinylab = "tinylab.cli:main"
+tinymoe = "tinymoe.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tinylab", "viewer"]
+packages = ["tinymoe", "viewer"]
 
 [tool.ruff]
 line-length = 100
@@ -47,13 +47,13 @@ ignore = ["N812", "N806", "RUF001", "RUF002", "RUF003", "N803"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
-"tinylab/tools/*.py" = ["T20"]
-"tinylab/cli.py" = ["T20"]
+"tinymoe/tools/*.py" = ["T20"]
+"tinymoe/cli.py" = ["T20"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["tinylab", "viewer/server"]
+files = ["tinymoe", "viewer/server"]
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
@@ -64,5 +64,5 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["tests"]
 timeout = 600
-filterwarnings = ["error::RuntimeWarning:tinylab.*"]
+filterwarnings = ["error::RuntimeWarning:tinymoe.*"]
 markers = ["slow: longer-running tests", "distributed: multi-process gloo tests"]

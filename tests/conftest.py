@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 import torch
 
-from tinylab.config import DataConfig, load_stage_config
-from tinylab.data.pretrain_mix import build_tokenizer
-from tinylab.data.tokenizer import Tokenizer
+from tinymoe.config import DataConfig, load_stage_config
+from tinymoe.data.pretrain_mix import build_tokenizer
+from tinymoe.data.tokenizer import Tokenizer
 
 torch.set_num_threads(4)
 

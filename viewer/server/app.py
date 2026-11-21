@@ -77,7 +77,7 @@ def _spans(spans: list[StageSpan]) -> list[Span]:
 
 def create_app(runs_dir: Path, poll_seconds: float = 1.0) -> FastAPI:
     store = RunStore(runs_dir)
-    app = FastAPI(title="TinyLab viewer", version="1")
+    app = FastAPI(title="TinyMoE viewer", version="1")
 
     def guard(fn: Any, *args: Any) -> Any:
         try:
@@ -144,7 +144,7 @@ def create_app(runs_dir: Path, poll_seconds: float = 1.0) -> FastAPI:
         @app.get("/", response_class=HTMLResponse)
         def missing_frontend() -> str:
             return (
-                "<h1>TinyLab viewer</h1><p>The frontend is not built. Run "
+                "<h1>TinyMoE viewer</h1><p>The frontend is not built. Run "
                 "<code>make web</code> (needs Node), then restart. The JSON API is live at "
                 "<a href='/api/runs'>/api/runs</a>.</p>"
             )
@@ -193,5 +193,5 @@ def _sse(event: str, data: Any) -> str:
 def serve(runs_dir: Path, host: str = "127.0.0.1", port: int = 8765) -> None:
     import uvicorn
 
-    poll = float(os.environ.get("TINYLAB_VIEWER_POLL", "1.0"))
+    poll = float(os.environ.get("TINYMOE_VIEWER_POLL", "1.0"))
     uvicorn.run(create_app(runs_dir, poll), host=host, port=port, log_level="info")

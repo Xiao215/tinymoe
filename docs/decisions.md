@@ -4,7 +4,7 @@ Judgment calls made while implementing [`PLAN.md`](../PLAN.md). Each entry: opti
 
 ## D1 — Config library: dataclasses + PyYAML (not OmegaConf/pydantic)
 Options: OmegaConf structured configs, pydantic models, plain dataclasses + YAML.
-Choice: plain dataclasses with a small recursive validator (`tinylab/config.py`).
+Choice: plain dataclasses with a small recursive validator (`tinymoe/config.py`).
 Why: zero extra deps, `mypy --strict` sees every field, unknown keys/type errors are
 reported with "did you mean" hints. Group selection (`model=moe_mac`) and dot-overrides
 (`train.lr=3e-3`) are ~80 lines. A custom YAML loader accepts `3e-4` as a float.
@@ -73,7 +73,7 @@ before / rope-scaled / after losses land in `artifacts/context_extension.json` s
 comparison is one override away.
 
 ## D11 — Bench measures real code paths, and generation estimates are upper bounds
-`tinylab bench` runs the actual Trainer (autocast, loss scaling, optimizer, MoE bias
+`tinymoe bench` runs the actual Trainer (autocast, loss scaling, optimizer, MoE bias
 update), the KV-cache generator and a captured snapshot forward for a few steps on random
 data. It then multiplies by the counts in each stage's config. Random weights never emit a
 stop token, so every generation runs to `max_new_tokens`, which makes rollout/eval
@@ -108,7 +108,7 @@ over budget. It reserves 8 bytes/param of optimizer state and keeps
 the advisory behaviour (tested).
 
 At about 3.3k tok/s, 16k-token steps take about 5 s, which sizes the Mac pipeline at
-about 7–8 h overnight (`tinylab bench configs/pipeline/mac.yaml` prints the current
+about 7–8 h overnight (`tinymoe bench configs/pipeline/mac.yaml` prints the current
 estimate).
 
 ## D13 — Memory probing at the worst case (supersedes D12's 8 bytes/param reservation)
@@ -159,7 +159,7 @@ spec, with an added case for an answer hidden inside `<think>` (no reward).
   directory, so DDP ranks do not each sample the teacher and a rerun reuses them.
 
 ## D16 — Mac sizing from the full bench: fp16 pinned, 14336-token steps, ~7.3 h
-The first full `tinylab bench configs/pipeline/mac.yaml` (every stage, real optimizer
+The first full `tinymoe bench configs/pipeline/mac.yaml` (every stage, real optimizer
 steps) found three things:
 1. **Precision was not stable.** `precision: auto` timed one 1024² matmul per dtype. That
    selected fp16 at 1.26x in one process and fp32 (fp16 at 1.00x) in the next. The probe now

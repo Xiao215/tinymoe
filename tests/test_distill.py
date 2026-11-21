@@ -9,13 +9,13 @@ import torch
 import torch.nn.functional as F
 from helpers import V, cpu_runtime, tiny_model
 
-from tinylab.config import BatchPlan, load_stage_config
-from tinylab.data.batch import IGNORE_INDEX, Batch
-from tinylab.data.tokenizer import Tokenizer
-from tinylab.eval.evaluator import Evaluator
-from tinylab.logging import RunLogger
-from tinylab.rl.rollout import pad_completions
-from tinylab.stages.distill import (
+from tinymoe.config import BatchPlan, load_stage_config
+from tinymoe.data.batch import IGNORE_INDEX, Batch
+from tinymoe.data.tokenizer import Tokenizer
+from tinymoe.eval.evaluator import Evaluator
+from tinymoe.logging import RunLogger
+from tinymoe.rl.rollout import pad_completions
+from tinymoe.stages.distill import (
     STORY_EVERY,
     ModeResult,
     OnPolicyRollouts,
@@ -27,7 +27,7 @@ from tinylab.stages.distill import (
     reverse_kl_loss,
     select_teacher_samples,
 )
-from tinylab.train.losses import token_kl
+from tinymoe.train.losses import token_kl
 
 
 def test_token_kl_matches_definition() -> None:

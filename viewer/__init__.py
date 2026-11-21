@@ -1,1 +1,1 @@
-"""TinyLab run viewer (FastAPI backend + React frontend)."""
+"""TinyMoE run viewer (FastAPI backend + React frontend)."""

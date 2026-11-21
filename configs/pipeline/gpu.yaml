@@ -1,6 +1,6 @@
 # GPU box pipeline (one 80 GB GPU, or several with torchrun; DDP keeps tokens_per_step
 # global). Same stages and code as mac.yaml, larger model and budget. Verify the sizing
-# on your hardware first: `tinylab bench configs/pipeline/gpu.yaml`.
+# on your hardware first: `tinymoe bench configs/pipeline/gpu.yaml`.
 name: gpu
 groups: {hardware: cuda_80gb, model: moe_gpu, student: student_dense, data: default}
 overrides:

@@ -1,4 +1,4 @@
-"""Read-only access to run directories (the RunLogger file contract, tinylab/logging.py).
+"""Read-only access to run directories (the RunLogger file contract, tinymoe/logging.py).
 
 Everything is derived from files, so the viewer works the same on a live run (files are
 appended / atomically replaced while we read) and on a finished one. Partial data is

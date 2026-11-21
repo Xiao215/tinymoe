@@ -16,9 +16,9 @@ import torch
 import torch.distributed as dist
 from helpers import RandomRows, cpu_runtime, make_trainer, read_losses, tiny_model
 
-from tinylab.config import BatchPlan, HardwareConfig
-from tinylab.train import distributed
-from tinylab.train.providers import RowProvider
+from tinymoe.config import BatchPlan, HardwareConfig
+from tinymoe.train import distributed
+from tinymoe.train.providers import RowProvider
 
 
 def main(out: Path) -> None:

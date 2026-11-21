@@ -1276,7 +1276,7 @@ wheels = [
 ]
 
 [[package]]
-name = "tinylab"
+name = "tinymoe"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

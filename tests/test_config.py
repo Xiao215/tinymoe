@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tinylab.config import (
+from tinymoe.config import (
     ConfigError,
     RunConfig,
     compose,

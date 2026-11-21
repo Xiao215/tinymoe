@@ -1,13 +1,13 @@
-# TinyLab task list (milestones → concrete steps)
+# TinyMoE task list (milestones → concrete steps)
 
 Spec: [`PLAN.md`](../PLAN.md). Status lives in [`progress.md`](progress.md).
 
 ## M0 — Scaffold
 - pyproject (uv; FastAPI/uvicorn are core deps, dev tools in the default `dev` dependency group), `.python-version`, `.gitignore`, `Makefile` (`check`, `lint`, `type`, `test`, `smoke`, `web`), `.pre-commit-config.yaml`.
-- `tinylab/config.py`: typed dataclass schema; YAML group files (`hardware=`, `model=`, `student=`, `data=`, `stage=`); dot-overrides; strict unknown-key / type / cross-field validation; batch math (`derive_batch`).
-- `tinylab/hardware.py`: `Capabilities` (device, count, memory, bf16/fp16, autocast, compile, fused AdamW, SDPA backends); `Runtime` resolution with logged fallbacks; device helpers (sync, memory, seeding) so no other module names a device.
-- `tinylab/logging.py`: `RunLogger` (manifest, metrics.jsonl, snapshots, artifacts, rank-0 only) + structured std logging.
-- `tinylab/cli.py`: `tinylab info`. Tests: config validation, overrides, batch math, hardware resolution, logger.
+- `tinymoe/config.py`: typed dataclass schema; YAML group files (`hardware=`, `model=`, `student=`, `data=`, `stage=`); dot-overrides; strict unknown-key / type / cross-field validation; batch math (`derive_batch`).
+- `tinymoe/hardware.py`: `Capabilities` (device, count, memory, bf16/fp16, autocast, compile, fused AdamW, SDPA backends); `Runtime` resolution with logged fallbacks; device helpers (sync, memory, seeding) so no other module names a device.
+- `tinymoe/logging.py`: `RunLogger` (manifest, metrics.jsonl, snapshots, artifacts, rank-0 only) + structured std logging.
+- `tinymoe/cli.py`: `tinymoe info`. Tests: config validation, overrides, batch math, hardware resolution, logger.
 
 ## M1 — Tokenizer + data
 - `data/tokenizer.py`: byte-level BPE, individual digits, special tokens, single chat template (`render_chat`) returning ids + assistant mask.

@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from tinylab.logging import RunLogger
+from tinymoe.logging import RunLogger
 from viewer.server.app import create_app, event_stream
 from viewer.server.runs import RunStore
 

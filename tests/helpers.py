@@ -8,15 +8,15 @@ from typing import Any
 
 import torch
 
-from tinylab import hardware
-from tinylab.config import BatchPlan, HardwareConfig, ModelConfig, TrainConfig, section_from_dict
-from tinylab.data.batch import Batch
-from tinylab.hardware import Runtime
-from tinylab.logging import RunLogger
-from tinylab.model.transformer import Transformer
-from tinylab.train.distributed import DistInfo
-from tinylab.train.loop import Hooks, LossFn, Trainer
-from tinylab.train.losses import lm_loss
+from tinymoe import hardware
+from tinymoe.config import BatchPlan, HardwareConfig, ModelConfig, TrainConfig, section_from_dict
+from tinymoe.data.batch import Batch
+from tinymoe.hardware import Runtime
+from tinymoe.logging import RunLogger
+from tinymoe.model.transformer import Transformer
+from tinymoe.train.distributed import DistInfo
+from tinymoe.train.loop import Hooks, LossFn, Trainer
+from tinymoe.train.losses import lm_loss
 
 V = 61
 

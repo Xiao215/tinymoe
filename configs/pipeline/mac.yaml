@@ -1,5 +1,5 @@
 # MacBook M1 Pro 16 GB pipeline (MPS, fp16 + loss scaling, 10 GB hard memory cap).
-# Sized with `tinylab bench configs/pipeline/mac.yaml` to about 8 h; measured numbers in
+# Sized with `tinymoe bench configs/pipeline/mac.yaml` to about 8 h; measured numbers in
 # README.md. 14336 tokens/step = 28 rows of 512: autobatch picks micro batch 7 here (D16),
 # and 7 x 4 runs 20% faster than the 4 x 8 that 32 rows would force.
 name: mac

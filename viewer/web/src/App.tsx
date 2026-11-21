@@ -75,7 +75,7 @@ export function App() {
   return (
     <div className="app">
       <header>
-        <h1>TinyLab</h1>
+        <h1>TinyMoE</h1>
         <select value={run ?? ""} onChange={(e) => setHash(`${e.target.value}/${panel.id}`)} aria-label="run">
           {(runs.data ?? []).map((r) => (
             <option key={r.id} value={r.id}>
@@ -107,7 +107,7 @@ export function App() {
       </header>
       {runs.error && <p className="error">{runs.error}</p>}
       {data.error && <p className="error">{data.error}</p>}
-      {!run && runs.data && <p className="muted">No runs found. Start one with `tinylab pipeline configs/pipeline/smoke.yaml`.</p>}
+      {!run && runs.data && <p className="muted">No runs found. Start one with `tinymoe pipeline configs/pipeline/smoke.yaml`.</p>}
       {run && (
         <>
           <Timeline timeline={data.timeline} snapshots={internals} selected={selected} onSelect={setSelected} />

@@ -9,11 +9,11 @@ const ThemeContext = createContext<Theme>({ dark: false, toggle: () => undefined
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const prefers = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-  const stored = localStorage.getItem("tinylab-theme");
+  const stored = localStorage.getItem("tinymoe-theme");
   const [dark, setDark] = useState(stored ? stored === "dark" : prefers);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    localStorage.setItem("tinylab-theme", dark ? "dark" : "light");
+    localStorage.setItem("tinymoe-theme", dark ? "dark" : "light");
   }, [dark]);
   return (
     <ThemeContext.Provider value={{ dark, toggle: () => setDark((d) => !d) }}>

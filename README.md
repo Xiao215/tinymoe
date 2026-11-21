@@ -1,4 +1,4 @@
-# TinyLab
+# TinyMoE
 
 An end-to-end LLM lab: **tokenizer → pre-training → mid-training → SFT → DPO → RL (GRPO
 family) → distillation**, on a small modern MoE transformer. It trains on a MacBook (M1
@@ -16,7 +16,7 @@ hard-coded: devices, precision, batch sizes and paths all come from `configs/`.
 ```bash
 uv sync                      # Python 3.12, torch, FastAPI, dev tools (ruff, mypy, pytest)
 make web                     # build the viewer frontend (needs Node 18+), once
-uv run tinylab info          # detected device, precision, compile, SDPA, memory
+uv run tinymoe info          # detected device, precision, compile, SDPA, memory
 ```
 
 ## Quickstart: CPU smoke run (a few minutes)
@@ -24,8 +24,8 @@ uv run tinylab info          # detected device, precision, compile, SDPA, memory
 Every stage on a ~0.8M-parameter MoE with tiny synthetic data, to check the machinery:
 
 ```bash
-uv run tinylab pipeline configs/pipeline/smoke.yaml
-uv run tinylab viewer --runs runs          # http://127.0.0.1:8765
+uv run tinymoe pipeline configs/pipeline/smoke.yaml
+uv run tinymoe viewer --runs runs          # http://127.0.0.1:8765
 ```
 
 ## Quickstart: MacBook (M1 Pro, 16 GB)
@@ -33,7 +33,7 @@ uv run tinylab viewer --runs runs          # http://127.0.0.1:8765
 The smoke pipeline on the GPU (MPS, fp16) takes under two minutes:
 
 ```bash
-uv run tinylab pipeline configs/pipeline/smoke.yaml hardware=mac_m1_16gb
+uv run tinymoe pipeline configs/pipeline/smoke.yaml hardware=mac_m1_16gb
 ```
 
 Then run the bench. It times real training steps of every stage on your machine, checks
@@ -41,24 +41,24 @@ peak memory against the 10 GB cap in `configs/hardware/mac_m1_16gb.yaml`, and pr
 wall-clock estimate:
 
 ```bash
-uv run tinylab bench configs/pipeline/mac.yaml --json runs/bench_mac.json
+uv run tinymoe bench configs/pipeline/mac.yaml --json runs/bench_mac.json
 ```
 
 Then start the overnight pipeline, and open the viewer in a second terminal while it trains:
 
 ```bash
-uv run tinylab pipeline configs/pipeline/mac.yaml
+uv run tinymoe pipeline configs/pipeline/mac.yaml
 ```
 
 ```bash
-uv run tinylab viewer --runs runs
+uv run tinymoe viewer --runs runs
 ```
 
 The pipeline survives interruptions. Rerunning with the same `run.run_id` skips finished
 stages and resumes the current one from its last checkpoint:
 
 ```bash
-uv run tinylab pipeline configs/pipeline/mac.yaml run.run_id=<the run's id>
+uv run tinymoe pipeline configs/pipeline/mac.yaml run.run_id=<the run's id>
 ```
 
 ### Measured bench (M1 Pro 16 GB, `configs/pipeline/mac.yaml`)
@@ -91,9 +91,9 @@ machine: the numbers move with thermals and with other apps using the GPU.
 
 ```bash
 uv sync                      # on Linux the PyPI torch wheel ships with CUDA
-uv run tinylab bench configs/pipeline/gpu.yaml
-uv run tinylab pipeline configs/pipeline/gpu.yaml                      # one GPU
-torchrun --nproc_per_node 8 -m tinylab.cli pipeline configs/pipeline/gpu.yaml   # DDP
+uv run tinymoe bench configs/pipeline/gpu.yaml
+uv run tinymoe pipeline configs/pipeline/gpu.yaml                      # one GPU
+torchrun --nproc_per_node 8 -m tinymoe.cli pipeline configs/pipeline/gpu.yaml   # DDP
 ```
 
 `tokens_per_step` is the global batch: more GPUs means fewer accumulation steps, not a
@@ -106,14 +106,14 @@ Each stage reads its starting checkpoint from the run's `manifest.json`
 an existing run:
 
 ```bash
-uv run tinylab stage sft hardware=mac_m1_16gb model=moe_mac data=default run.run_id=<run id>
-uv run python -m tinylab.stages.grpo run.run_id=<run id> grpo.variant=dapo
+uv run tinymoe stage sft hardware=mac_m1_16gb model=moe_mac data=default run.run_id=<run id>
+uv run python -m tinymoe.stages.grpo run.run_id=<run id> grpo.variant=dapo
 ```
 
 Or start a stage from any checkpoint:
 
 ```bash
-uv run tinylab stage distill stage.init_from=runs/<id>/checkpoints/grpo/final.pt run.name=distill-only
+uv run tinymoe stage distill stage.init_from=runs/<id>/checkpoints/grpo/final.pt run.name=distill-only
 ```
 
 Overrides are `group=file` (from `configs/<group>/`) or dotted keys (`train.lr=3e-4`). In a
@@ -123,14 +123,14 @@ inconsistent batch math are rejected before anything runs.
 Other tools:
 
 ```bash
-uv run tinylab report runs/<id>                            # cross-stage table (markdown + JSON)
-uv run tinylab chat runs/<id>/checkpoints/grpo/final.pt    # REPL, shows <think>
-uv run tinylab inspect runs/<id>/checkpoints/sft/final.pt  # config, params, router bias
+uv run tinymoe report runs/<id>                            # cross-stage table (markdown + JSON)
+uv run tinymoe chat runs/<id>/checkpoints/grpo/final.pt    # REPL, shows <think>
+uv run tinymoe inspect runs/<id>/checkpoints/sft/final.pt  # config, params, router bias
 ```
 
 ## The viewer
 
-`tinylab viewer --runs runs` serves the API and the built frontend. It works live, with
+`tinymoe viewer --runs runs` serves the API and the built frontend. It works live, with
 server-sent events while a run trains, and offline on finished runs. Panels:
 
 | Panel | Shows |
@@ -210,4 +210,4 @@ Forced fallbacks (each tested and logged when chosen): `hardware.precision=fp32`
   default. It polls the run directory for changes, so it reads runs on local or shared
   disks, not object storage.
 * **Bench numbers** are from one M1 Pro with nothing else running. Thermals and other apps
-  change them; rerun `tinylab bench` before a long run on another machine.
+  change them; rerun `tinymoe bench` before a long run on another machine.

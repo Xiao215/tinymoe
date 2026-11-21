@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tinylab.config import DataConfig, DPOConfig, MathWorldConfig
-from tinylab.data import mathworld, pref_data, rl_prompts, sft_data, stories
-from tinylab.data.batch import IGNORE_INDEX
-from tinylab.data.mathworld import Bucket, verify
-from tinylab.data.pretrain_mix import MixtureSampler, build_shards, open_shard, write_shard
-from tinylab.data.tokenizer import Message, Tokenizer, render_chat
+from tinymoe.config import DataConfig, DPOConfig, MathWorldConfig
+from tinymoe.data import mathworld, pref_data, rl_prompts, sft_data, stories
+from tinymoe.data.batch import IGNORE_INDEX
+from tinymoe.data.mathworld import Bucket, verify
+from tinymoe.data.pretrain_mix import MixtureSampler, build_shards, open_shard, write_shard
+from tinymoe.data.tokenizer import Message, Tokenizer, render_chat
 
 # ------------------------------------------------------------------ tokenizer
 

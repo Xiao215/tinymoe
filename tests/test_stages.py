@@ -11,13 +11,13 @@ from typing import Any
 import pytest
 from helpers import RandomRows, cpu_runtime, make_trainer, read_losses, tiny_model
 
-from tinylab.config import STAGE_ORDER, load_stage_config
-from tinylab.data.tokenizer import Tokenizer
-from tinylab.eval.evaluator import Evaluator, pass_at_k
-from tinylab.eval.snapshots import Snapshotter
-from tinylab.logging import RunLogger
-from tinylab.pipeline import run_pipeline, stage_configs
-from tinylab.train.loop import Hooks
+from tinymoe.config import STAGE_ORDER, load_stage_config
+from tinymoe.data.tokenizer import Tokenizer
+from tinymoe.eval.evaluator import Evaluator, pass_at_k
+from tinymoe.eval.snapshots import Snapshotter
+from tinymoe.logging import RunLogger
+from tinymoe.pipeline import run_pipeline, stage_configs
+from tinymoe.train.loop import Hooks
 
 PIPELINES = Path(__file__).resolve().parent.parent / "configs" / "pipeline"
 
@@ -254,7 +254,7 @@ class _Rows:
 
 
 def test_bench_smoke(tmp_path: Path) -> None:
-    from tinylab.tools import bench
+    from tinymoe.tools import bench
 
     res = bench.run(PIPELINES / "smoke.yaml", ["bench.steps=2", "bench.warmup=1"])
     names = [s["stage"] for s in res["stages"]]

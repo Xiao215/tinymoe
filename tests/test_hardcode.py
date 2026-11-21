@@ -1,6 +1,6 @@
 """No hard-coded devices or machine paths outside ``hardware.py`` and the config schema.
 
-Every device decision goes through ``tinylab/hardware.py`` (capabilities -> runtime) and
+Every device decision goes through ``tinymoe/hardware.py`` (capabilities -> runtime) and
 every path comes from config, so the same code runs on CPU, MPS, CUDA and multi-GPU. This
 scans Python *tokens* (string literals and attribute chains, not comments or prose), so a
 docstring may say "MPS" while code may not branch on it.
@@ -16,8 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ALLOWED = {
-    ROOT / "tinylab" / "hardware.py",  # the one place devices are named
-    ROOT / "tinylab" / "config.py",  # the schema lists the allowed option values
+    ROOT / "tinymoe" / "hardware.py",  # the one place devices are named
+    ROOT / "tinymoe" / "config.py",  # the schema lists the allowed option values
 }
 DEVICE_LITERAL = re.compile(r"^(cpu|mps|cuda|nccl|gloo)(:\d+)?$")
 ABS_PATH = re.compile(r"^(/(Users|home|tmp|private|var|opt|mnt|Volumes)\b|[A-Za-z]:\\)")
@@ -25,7 +25,7 @@ DEVICE_API = re.compile(r"\btorch\s*\.\s*(cuda|mps|backends\s*\.\s*(mps|cuda))\b
 
 
 def sources() -> list[Path]:
-    files = [*(ROOT / "tinylab").rglob("*.py"), *(ROOT / "viewer" / "server").rglob("*.py")]
+    files = [*(ROOT / "tinymoe").rglob("*.py"), *(ROOT / "viewer" / "server").rglob("*.py")]
     return sorted(f for f in files if f not in ALLOWED)
 
 

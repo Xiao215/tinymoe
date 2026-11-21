@@ -18,15 +18,15 @@ from helpers import (
     tiny_model,
 )
 
-from tinylab import hardware
-from tinylab.config import BatchPlan, HardwareConfig, TrainConfig
-from tinylab.data.batch import Batch
-from tinylab.train.autobatch import find_micro_batch
-from tinylab.train.loop import Hooks
-from tinylab.train.losses import LossOutput, lm_loss
-from tinylab.train.optim import build_optimizer, classify, newton_schulz
-from tinylab.train.providers import RowProvider
-from tinylab.train.schedule import lr_multiplier
+from tinymoe import hardware
+from tinymoe.config import BatchPlan, HardwareConfig, TrainConfig
+from tinymoe.data.batch import Batch
+from tinymoe.train.autobatch import find_micro_batch
+from tinymoe.train.loop import Hooks
+from tinymoe.train.losses import LossOutput, lm_loss
+from tinymoe.train.optim import build_optimizer, classify, newton_schulz
+from tinymoe.train.providers import RowProvider
+from tinymoe.train.schedule import lr_multiplier
 
 
 @pytest.mark.parametrize("moe", [False, True])
@@ -278,7 +278,7 @@ def test_ddp_gloo_two_processes_match_single(tmp_path: Path) -> None:
 def test_autobatch_never_tries_projected_overruns(monkeypatch: pytest.MonkeyPatch) -> None:
     """With measurable memory, sizes whose linear projection exceeds the budget are skipped
     (on unified memory an oversized trial would swap instead of raising OOM)."""
-    from tinylab import hardware
+    from tinymoe import hardware
 
     peak = {"bytes": 0.0}
     tried: list[int] = []

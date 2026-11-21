@@ -1,4 +1,4 @@
-# TinyLab — an end-to-end LLM pre-training & post-training lab
+# TinyMoE — an end-to-end LLM pre-training & post-training lab
 
 > **Purpose:** experience the *whole* modern LLM lifecycle — tokenizer → pre-training → mid-training → SFT → preference tuning → RL → distillation — at a scale that trains on a MacBook (M1 Pro, 16 GB), using the same techniques frontier open-weight labs use (DeepSeek, Qwen, GLM, Kimi), and **see** every stage through a live visualization viewer.
 >
@@ -31,12 +31,12 @@ Quality bar: idiomatic, typed (type hints everywhere, `from __future__ import an
 | DL framework | PyTorch ≥ 2.4 | device-agnostic; SDPA for attention |
 | Tokenizer | HF `tokenizers` (train our own) | |
 | Data | HF `datasets` (TinyStories) + synthetic generators | streamed/cached to disk |
-| Config | dataclasses + YAML (OmegaConf or `pydantic`) with CLI dot-overrides | `python -m tinylab.pretrain model=moe_mac train.lr=3e-3` |
+| Config | dataclasses + YAML (OmegaConf or `pydantic`) with CLI dot-overrides | `python -m tinymoe.pretrain model=moe_mac train.lr=3e-3` |
 | Logging | own JSONL run logger + optional W&B / TensorBoard adapters | viewer reads the JSONL/snapshots |
 | Viewer backend | FastAPI (+ WebSocket or SSE for live updates) | serves run data |
 | Viewer frontend | Vite + React + TypeScript, Plotly or ECharts / D3 | static build served by FastAPI |
 | Tests | `pytest`, `hypothesis` optional | |
-| Lint / types | `ruff`, `mypy` (strict on `tinylab/`) | `pre-commit` config |
+| Lint / types | `ruff`, `mypy` (strict on `tinymoe/`) | `pre-commit` config |
 
 No CUDA-only dependency may be required. CUDA-only accelerators (flash-attn, liger kernels, vLLM, bitsandbytes) may be *optional* extras behind capability checks.
 
@@ -45,7 +45,7 @@ No CUDA-only dependency may be required. CUDA-only accelerators (flash-attn, lig
 ## 2. Project structure
 
 ```
-tinylab/
+tinymoe/
   pyproject.toml
   README.md
   configs/
@@ -54,7 +54,7 @@ tinylab/
     data/            smoke.yaml, default.yaml
     stage/           pretrain.yaml, midtrain.yaml, sft.yaml, dpo.yaml, grpo.yaml, distill.yaml
     pipeline/        smoke.yaml, mac.yaml, gpu.yaml       # chains all stages
-  tinylab/
+  tinymoe/
     config.py        # dataclass schemas, YAML loading, overrides, validation
     hardware.py      # device/dtype/capability detection + fallbacks
     logging.py       # RunLogger: metrics JSONL, snapshots, artifacts, run manifest
@@ -233,7 +233,7 @@ All stages share `train/loop.py` (gradient accumulation, clipping, AMP, eval, ch
 
 ## 8. Viewer (visualizing the model as it trains)
 
-`tinylab viewer --runs runs/` starts FastAPI + built frontend; works live during training (SSE/WebSocket or polling) and offline on finished runs.
+`tinymoe viewer --runs runs/` starts FastAPI + built frontend; works live during training (SSE/WebSocket or polling) and offline on finished runs.
 
 Pages / panels:
 1. **Pipeline timeline** — one horizontal timeline across all stages (pretrain → mid → SFT → DPO → RL → distill) with stage boundaries; every metric chart can span the whole lifecycle.
@@ -256,7 +256,7 @@ Each milestone must pass: unit tests, `ruff`, `mypy`, the listed checks, and the
 
 | # | Milestone | Acceptance checks |
 |---|---|---|
-| M0 | Scaffold: repo, `uv`, pyproject, pre-commit, CI-style `make check`, config system, hardware detection, RunLogger | `tinylab info` prints detected capabilities; config overrides work; tests for config validation & batch math |
+| M0 | Scaffold: repo, `uv`, pyproject, pre-commit, CI-style `make check`, config system, hardware detection, RunLogger | `tinymoe info` prints detected capabilities; config overrides work; tests for config validation & batch math |
 | M1 | Tokenizer + data (stories, mathworld, packing, shards, verifier) | digits tokenized individually; round-trip encode/decode; mathworld deterministic by seed; verifier unit tests incl. adversarial formats; shards readable via memmap |
 | M2 | Model (dense + MoE, GQA, QK-Norm, RoPE, SwiGLU, KV cache, MTP) | shape tests; causal mask test (future tokens don't affect past logits); **KV-cache generation == full forward** numerically; MoE dispatch == naive reference implementation; balancing keeps load near-uniform on random data; param count total/active matches formula |
 | M3 | Trainer + optimizers + schedules + checkpointing + `bench.py` | overfit a tiny batch to near-zero loss (dense and MoE, AdamW and Muon); resume gives identical loss trajectory; fp32/fp16/bf16 paths per capability with forced-fallback tests; `bench.py` prints estimates |
@@ -275,7 +275,7 @@ Each milestone must pass: unit tests, `ruff`, `mypy`, the listed checks, and the
 ## 10. Final validation (must pass before stopping)
 
 1. Fresh clone, `uv sync`, `make check` (ruff, mypy, pytest) — all green, no warnings treated lightly.
-2. `tinylab pipeline configs/pipeline/smoke.yaml` on CPU completes all stages in a few minutes and the viewer shows every panel populated.
+2. `tinymoe pipeline configs/pipeline/smoke.yaml` on CPU completes all stages in a few minutes and the viewer shows every panel populated.
 3. The same smoke pipeline with `hardware=mac_m1_16gb` on MPS completes; with forced fallbacks (fp32, no compile, math SDPA) also completes.
 4. `bench.py` on the `mac` pipeline prints per-stage time/memory estimates and they fit 16 GB.
 5. Code paths for CUDA and DDP are exercised at least by tests that run on CPU with gloo backend (2 processes) to prove multi-process correctness without a GPU.

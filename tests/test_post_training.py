@@ -9,13 +9,13 @@ import pytest
 import torch
 from helpers import tiny_model
 
-from tinylab.config import DPOConfig, LoRAConfig
-from tinylab.data.batch import IGNORE_INDEX
-from tinylab.data.tokenizer import Message, Tokenizer
-from tinylab.model.lora import LoRALinear, apply_lora, merge_lora
-from tinylab.stages.dpo import EncodedPair, PairDataset, encode_side
-from tinylab.train.optim import classify
-from tinylab.train.preference import preference_loss
+from tinymoe.config import DPOConfig, LoRAConfig
+from tinymoe.data.batch import IGNORE_INDEX
+from tinymoe.data.tokenizer import Message, Tokenizer
+from tinymoe.model.lora import LoRALinear, apply_lora, merge_lora
+from tinymoe.stages.dpo import EncodedPair, PairDataset, encode_side
+from tinymoe.train.optim import classify
+from tinymoe.train.preference import preference_loss
 
 
 def test_lora_starts_at_base_and_merges_exactly() -> None:

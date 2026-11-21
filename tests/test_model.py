@@ -7,13 +7,13 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from tinylab.config import ModelConfig, MoEConfig, MTPConfig, RopeScalingConfig, section_from_dict
-from tinylab.model.config import param_count
-from tinylab.model.hooks import Capture
-from tinylab.model.moe import MoE
-from tinylab.model.rope import inv_frequencies
-from tinylab.model.transformer import Transformer, generate, generate_speculative
-from tinylab.train.autobatch import worst_case_routing
+from tinymoe.config import ModelConfig, MoEConfig, MTPConfig, RopeScalingConfig, section_from_dict
+from tinymoe.model.config import param_count
+from tinymoe.model.hooks import Capture
+from tinymoe.model.moe import MoE
+from tinymoe.model.rope import inv_frequencies
+from tinymoe.model.transformer import Transformer, generate, generate_speculative
+from tinymoe.train.autobatch import worst_case_routing
 
 V = 97
 

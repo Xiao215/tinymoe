@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 import torch
 
-from tinylab import hardware
-from tinylab.cli import main
-from tinylab.config import HardwareConfig
-from tinylab.logging import RunLogger
+from tinymoe import hardware
+from tinymoe.cli import main
+from tinymoe.config import HardwareConfig
+from tinymoe.logging import RunLogger
 
 
 def test_cpu_capabilities() -> None:

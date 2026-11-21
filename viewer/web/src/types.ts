@@ -1,5 +1,5 @@
 // Response shapes of the viewer API (viewer/server/app.py) and the snapshot schema
-// written by tinylab/eval/snapshots.py + evaluator.py. Every field that a run may not
+// written by tinymoe/eval/snapshots.py + evaluator.py. Every field that a run may not
 // have produced yet is optional, and panels must render with it missing.
 
 export interface StageStatus {

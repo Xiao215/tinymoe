@@ -10,8 +10,8 @@ import pytest
 import torch
 from helpers import cpu_runtime
 
-from tinylab import hardware
-from tinylab.config import (
+from tinymoe import hardware
+from tinymoe.config import (
     BatchPlan,
     GRPOConfig,
     HardwareConfig,
@@ -20,17 +20,17 @@ from tinylab.config import (
     load_stage_config,
     section_from_dict,
 )
-from tinylab.data import mathworld
-from tinylab.data.batch import IGNORE_INDEX
-from tinylab.data.tokenizer import Tokenizer
-from tinylab.eval.evaluator import Evaluator
-from tinylab.hardware import Runtime
-from tinylab.logging import RunLogger
-from tinylab.model.transformer import Transformer
-from tinylab.rl import grpo
-from tinylab.rl.rewards import overlong_penalty, score
-from tinylab.rl.rollout import RolloutProvider
-from tinylab.train.losses import sequence_logprobs
+from tinymoe.data import mathworld
+from tinymoe.data.batch import IGNORE_INDEX
+from tinymoe.data.tokenizer import Tokenizer
+from tinymoe.eval.evaluator import Evaluator
+from tinymoe.hardware import Runtime
+from tinymoe.logging import RunLogger
+from tinymoe.model.transformer import Transformer
+from tinymoe.rl import grpo
+from tinymoe.rl.rewards import overlong_penalty, score
+from tinymoe.rl.rollout import RolloutProvider
+from tinymoe.train.losses import sequence_logprobs
 
 
 def test_rewards_and_overlong() -> None:

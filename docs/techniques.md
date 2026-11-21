@@ -1,7 +1,7 @@
 # Techniques
 
 Each entry says what the technique is, why production labs use it, where it is in the code,
-and where it comes from. Config keys are given as `section.key` (see `tinylab/config.py`
+and where it comes from. Config keys are given as `section.key` (see `tinymoe/config.py`
 for every default). Judgment calls and measurements live in [decisions.md](decisions.md).
 
 ## Data and tokenizer

@@ -149,7 +149,7 @@ export const PALETTE = [
 
 export const paletteColor = (i: number) => PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length]!;
 
-/** Token class for colouring (mirrors tinylab/eval/snapshots.py token_category). */
+/** Token class for colouring (mirrors tinymoe/eval/snapshots.py token_category). */
 export function tokenClass(tok: string): string {
   const s = tok.trim();
   if (/^<\|.*\|>$|^<\/?think>$/.test(s)) return "special";

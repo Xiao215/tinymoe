@@ -83,7 +83,7 @@ under the hard cap `hardware.memory_budget_gb` × `autobatch_headroom`.
 
 `Transformer.generate` does batched, left-padded sampling with a KV cache, temperature and
 top-p. It returns per-token log-probs and (optionally) the experts chosen per layer. Eval,
-DPO pair mining, GRPO rollouts, teacher sampling, on-policy distillation and `tinylab chat`
+DPO pair mining, GRPO rollouts, teacher sampling, on-policy distillation and `tinymoe chat`
 all use it through `Evaluator.generate`.
 
 ## Viewer
