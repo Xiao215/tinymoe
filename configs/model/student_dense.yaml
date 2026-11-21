@@ -1,0 +1,10 @@
+# Dense student for distillation (~5-10M params with an 8k vocab).
+d_model: 256
+n_layers: 6
+n_heads: 4
+n_kv_heads: 2
+ffn_hidden: 640
+max_seq_len: 1024
+rope_base: 10000.0
+moe: {enabled: false}
+mtp: {depth: 0}

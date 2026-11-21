@@ -1,0 +1,10 @@
+# Small dense baseline (no MoE) - for MoE-vs-dense comparisons.
+d_model: 256
+n_layers: 6
+n_heads: 8
+n_kv_heads: 2
+ffn_hidden: 768
+max_seq_len: 1024
+rope_base: 10000.0
+moe: {enabled: false}
+mtp: {depth: 0}

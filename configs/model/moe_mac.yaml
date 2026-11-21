@@ -1,0 +1,25 @@
+# Mac preset: fine-grained MoE sized for an M1 Pro with 16 GB (verify with tinylab bench).
+# ~100M total / ~28M active parameters with an 8k vocab.
+d_model: 512
+n_layers: 8
+n_heads: 8
+n_kv_heads: 2
+ffn_hidden: 1536
+max_seq_len: 1024
+rope_base: 10000.0
+qk_norm: true
+tie_embeddings: true
+init_std: 0.02
+moe:
+  enabled: true
+  n_experts: 32
+  top_k: 4
+  n_shared_experts: 1
+  expert_hidden: 256
+  n_dense_layers: 1
+  score_func: sigmoid
+  balance: aux_free
+  bias_update_rate: 0.001
+  seq_aux_weight: 0.0001
+  dispatch: auto
+mtp: {depth: 1, loss_weight: 0.3}

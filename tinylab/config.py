@@ -125,6 +125,7 @@ class MoEConfig:
     switch_aux_weight: float = 1e-2
     z_loss_weight: float = 0.0
     capacity_factor: float | None = None  # None -> no token dropping
+    dispatch: Literal["auto", "loop", "padded"] = "auto"  # see model/moe.py
     router_init_std: float | None = None  # None -> model.init_std
 
 

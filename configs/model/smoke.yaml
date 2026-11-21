@@ -1,0 +1,23 @@
+# ~0.8M-param MoE for CI and the smoke pipeline (vocab from the tokenizer).
+d_model: 128
+n_layers: 2
+n_heads: 4
+n_kv_heads: 2
+ffn_hidden: 384
+max_seq_len: 256
+rope_base: 10000.0
+qk_norm: true
+tie_embeddings: true
+init_std: 0.02
+moe:
+  enabled: true
+  n_experts: 4
+  top_k: 2
+  n_shared_experts: 1
+  expert_hidden: 128
+  n_dense_layers: 1
+  score_func: sigmoid
+  balance: aux_free
+  bias_update_rate: 0.001
+  seq_aux_weight: 0.0001
+mtp: {depth: 1, loss_weight: 0.3}

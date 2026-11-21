@@ -1,0 +1,23 @@
+# GPU preset: ~0.9B total / ~0.2B active. Same code path as the Mac preset.
+d_model: 1024
+n_layers: 16
+n_heads: 16
+n_kv_heads: 4
+ffn_hidden: 2816
+max_seq_len: 4096
+rope_base: 50000.0
+qk_norm: true
+tie_embeddings: false
+moe:
+  enabled: true
+  n_experts: 64
+  top_k: 6
+  n_shared_experts: 1
+  expert_hidden: 256
+  n_dense_layers: 1
+  score_func: sigmoid
+  balance: aux_free
+  dispatch: auto
+mtp: {depth: 1, loss_weight: 0.3}
+sliding_window: 1024
+global_every: 4
