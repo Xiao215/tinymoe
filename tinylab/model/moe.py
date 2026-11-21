@@ -202,9 +202,9 @@ class MoE(nn.Module):
     @torch.no_grad()
     def update_bias(self, counts: torch.Tensor) -> None:
         """DeepSeek-V3 aux-free update: push overloaded experts' bias down, idle ones up."""
-        if self.cfg.balance != "aux_free" or counts.sum() == 0:
+        if self.cfg.balance != "aux_free":
             return
-        load = counts / counts.sum()
+        load = counts / counts.sum().clamp_min(1)  # all-zero counts -> sign(0) -> no change
         self.expert_bias += self.cfg.bias_update_rate * torch.sign(load.mean() - load)
 
     def reset_counts(self) -> torch.Tensor:

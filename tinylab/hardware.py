@@ -403,6 +403,11 @@ def memory_bytes(device: torch.device) -> dict[str, int]:
     return {"allocated": rss, "peak": rss}
 
 
+def has_memory_stats(device: torch.device) -> bool:
+    """Whether :func:`memory_bytes` reflects this device (CPU only reports peak RSS)."""
+    return device.type in (_CUDA, _MPS)
+
+
 def is_oom(exc: BaseException) -> bool:
     msg = str(exc).lower()
     return isinstance(exc, torch.OutOfMemoryError) or "out of memory" in msg
