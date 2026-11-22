@@ -52,7 +52,10 @@ export function useFetch<T>(
       live = false;
     };
   }, [key]);
-  return state.key === key ? state : { data: null, error: null };
+  if (state.key === key) return state;
+  // while the next key loads, keep showing the previous data (no flash of empty panels
+  // when scrubbing snapshots); a null key means "nothing to load"
+  return { data: key === null ? null : state.data, error: null };
 }
 
 export interface RunData {

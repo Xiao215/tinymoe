@@ -6,6 +6,8 @@ interface Props {
   option: echarts.EChartsOption;
   height?: number;
   onClick?: (params: echarts.ECElementEvent) => void;
+  /** tween between successive options (snapshot scrubbing); off for live metric lines */
+  animate?: boolean;
 }
 
 const MONO = 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace';
@@ -63,7 +65,7 @@ echarts.registerTheme("tinymoe-light", makeTheme(false));
 echarts.registerTheme("tinymoe-dark", makeTheme(true));
 
 /** Thin ECharts wrapper: one instance per mount, re-themed and resized automatically. */
-export function Chart({ option, height = 260, onClick }: Props) {
+export function Chart({ option, height = 260, onClick, animate = true }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const { dark } = useTheme();
@@ -78,12 +80,26 @@ export function Chart({ option, height = 260, onClick }: Props) {
       ro.disconnect();
       c.dispose();
       chart.current = null;
+      shape.current = "";
     };
   }, [dark]);
 
+  const shape = useRef<string>("");
   useEffect(() => {
-    chart.current?.setOption({ animation: false, backgroundColor: "transparent", ...option }, { notMerge: true });
-  }, [option, dark]);
+    const c = chart.current;
+    if (!c) return;
+    const base = animate
+      ? { animation: true, animationDuration: 300, animationDurationUpdate: 380, animationEasingUpdate: "cubicOut" as const }
+      : { animation: false };
+    // Same series layout as before (the usual case when scrubbing snapshots): merge, so
+    // ECharts tweens bars, points and lines to their new values. Anything else is a
+    // different chart: replace it, so no stale series or components linger.
+    const series = Array.isArray(option.series) ? option.series : option.series ? [option.series] : [];
+    const sig = series.map((x) => `${x.type}:${String(x.name ?? "")}`).join("|");
+    const tween = animate && sig === shape.current;
+    shape.current = sig;
+    c.setOption({ backgroundColor: "transparent", ...base, ...option }, { notMerge: !tween });
+  }, [option, dark, animate]);
 
   useEffect(() => {
     const c = chart.current;

@@ -139,3 +139,16 @@ def test_sse_streams_new_metrics(run_root: Path) -> None:
 def test_frontend_fallback_page(client: TestClient) -> None:
     res = client.get("/")
     assert res.status_code == 200
+
+
+def test_frontend_cache_headers(run_root: Path, tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><title>viewer</title>")
+    (dist / "assets" / "index-abc123.js").write_text("console.log(1)")
+    client = TestClient(create_app(run_root, web_dist=dist))
+    page = client.get("/")
+    assert page.status_code == 200 and page.headers["cache-control"] == "no-cache"
+    asset = client.get("/assets/index-abc123.js")
+    assert asset.status_code == 200 and "immutable" in asset.headers["cache-control"]
+    assert client.get("/api/runs").status_code == 200  # the API is not shadowed

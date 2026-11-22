@@ -39,7 +39,7 @@ export function Heatmap({ values, rows, cols, height, min, max, xName, yName, on
           return `${yName ?? "row"} ${row}<br/>${xName ?? "col"} ${cols[d[0]] ?? ""}<br/><b>${d[2].toFixed(digits)}</b>`;
         },
       },
-      grid: { left: 70, right: 20, top: 10, bottom: 70 },
+      grid: { left: 8, right: 20, top: 10, bottom: 70, containLabel: true },
       xAxis: { type: "category", data: cols, name: xName, axisLabel: { rotate: cols.length > 12 ? 60 : 0, fontSize: 10 } },
       yAxis: { type: "category", data: [...rows].reverse(), name: yName, axisLabel: { fontSize: 10 } },
       visualMap: {

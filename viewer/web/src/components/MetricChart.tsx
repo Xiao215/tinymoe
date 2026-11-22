@@ -293,7 +293,7 @@ export function MetricChart({
         )}
       </div>
       {hasData ? (
-        <Chart option={option} height={height} />
+        <Chart option={option} height={height} animate={false} />
       ) : (
         <div className="muted" style={{ height, display: "grid", placeItems: "center", fontSize: 12 }}>
           no data yet

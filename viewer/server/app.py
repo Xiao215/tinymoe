@@ -25,10 +25,26 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.responses import Response
+from starlette.types import Scope
 
 from viewer.server.runs import NotFoundError, RunStore, StageSpan
 
 WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+
+class WebFiles(StaticFiles):
+    """The built frontend. Vite content-hashes everything under ``assets/``, so those are
+    cached for good; ``index.html`` (which names the current hashes) is revalidated on
+    every load, so a rebuilt viewer shows up on a plain reload."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        immutable = path.startswith("assets/") and response.status_code == 200
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if immutable else "no-cache"
+        )
+        return response
 
 
 class StageStatus(BaseModel):
@@ -75,7 +91,7 @@ def _spans(spans: list[StageSpan]) -> list[Span]:
     return [Span(name=s.name, status=s.status, start=s.start, end=s.end) for s in spans]
 
 
-def create_app(runs_dir: Path, poll_seconds: float = 1.0) -> FastAPI:
+def create_app(runs_dir: Path, poll_seconds: float = 1.0, web_dist: Path = WEB_DIST) -> FastAPI:
     store = RunStore(runs_dir)
     app = FastAPI(title="TinyMoE viewer", version="1")
 
@@ -137,8 +153,8 @@ def create_app(runs_dir: Path, poll_seconds: float = 1.0) -> FastAPI:
         headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
         return StreamingResponse(stream, media_type="text/event-stream", headers=headers)
 
-    if WEB_DIST.is_dir():
-        app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
+    if web_dist.is_dir():
+        app.mount("/", WebFiles(directory=web_dist, html=True), name="web")
     else:
 
         @app.get("/", response_class=HTMLResponse)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Chevron, usePopover } from "./Select";
 import { STAGE_ORDER, stageColor } from "../theme";
 import type { RunSummary } from "../types";
 
@@ -37,19 +38,13 @@ function StageStrip({ r }: { r: RunSummary }) {
 /** Run switcher: a popover listing runs with their lifecycle at a glance, plus an
  * overlay toggle per run (other runs draw dashed on the metric charts). */
 export function RunPicker({ runs, run, compare, onOpen, onToggleCompare }: Props) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = usePopover(root);
+  const [active, setActive] = useState(0);
   const current = runs.find((r) => r.id === run);
 
   useEffect(() => {
-    if (!open) return;
-    setActive(Math.max(0, runs.findIndex((r) => r.id === run)));
-    const onDown = (e: MouseEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    if (open) setActive(Math.max(0, runs.findIndex((r) => r.id === run)));
   }, [open, runs, run]);
 
   const onKey = (e: KeyboardEvent) => {
@@ -81,13 +76,11 @@ export function RunPicker({ runs, run, compare, onOpen, onToggleCompare }: Props
           {current && <span className={`status ${runStatus(current)}`}><i /></span>}
           <span className="mono">{run ?? "–"}</span>
           {compare.length > 0 && <span className="rp-count">+{compare.length}</span>}
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-            <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
-          </svg>
+          <Chevron />
         </span>
       </button>
       {open && (
-        <div className="rp-pop" role="listbox" aria-label="runs">
+        <div className="pop rp-pop" role="listbox" aria-label="runs">
           <div className="rp-head">
             <span className="label">runs</span>
             <span className="label">overlay</span>
@@ -102,7 +95,7 @@ export function RunPicker({ runs, run, compare, onOpen, onToggleCompare }: Props
                 role="option"
                 aria-selected={isCur}
                 className={`rp-row${isCur ? " current" : ""}${i === active ? " active" : ""}`}
-                onMouseEnter={() => setActive(i)}
+                onPointerEnter={() => setActive(i)}
                 onClick={() => {
                   onOpen(r.id);
                   setOpen(false);

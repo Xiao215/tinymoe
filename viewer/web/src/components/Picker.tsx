@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { SnapshotEntry } from "../types";
+import { Select } from "./Select";
 
 interface PickerProps<T extends string | number> {
   label: string;
@@ -8,26 +9,9 @@ interface PickerProps<T extends string | number> {
   onChange: (v: T) => void;
 }
 
-/** Labelled select whose value type round-trips (numbers stay numbers). */
-export function Picker<T extends string | number>({ label, value, options, onChange }: PickerProps<T>) {
-  return (
-    <label className="picker">
-      {label}{" "}
-      <select
-        value={String(value)}
-        onChange={(e) => {
-          const hit = options.find((o) => String(o.value) === e.target.value);
-          if (hit) onChange(hit.value);
-        }}
-      >
-        {options.map((o) => (
-          <option key={String(o.value)} value={String(o.value)}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+/** Labelled dropdown used by the panels (the shared Select). */
+export function Picker<T extends string | number>(props: PickerProps<T>) {
+  return <Select {...props} />;
 }
 
 /** Placeholder for panels whose data has not been produced (yet). */
