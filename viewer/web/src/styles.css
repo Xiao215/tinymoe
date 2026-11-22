@@ -104,7 +104,11 @@ button.active { border-color: var(--ink); color: var(--ink); }
   border-bottom: 1px solid var(--border);
 }
 .topbar-row { display: flex; align-items: center; gap: 20px; padding: 0 28px; height: 52px; max-width: 1680px; margin: 0 auto; }
-.brand { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.brand { display: flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--ink); text-decoration: none; border-radius: var(--radius); }
+.brand:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.brand .logo { flex: none; display: block; }
+[data-theme="dark"] .brand .logo { outline: 1px solid var(--border-strong); border-radius: 5px; }
+.brand span { transform: translateY(1px); }
 .brand b { font-size: 15px; letter-spacing: -0.01em; }
 .brand span { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .tabs { display: flex; gap: 0; height: 100%; overflow-x: auto; scrollbar-width: none; min-width: 0; }
@@ -499,3 +503,11 @@ table.params thead th { position: sticky; top: 0; background: var(--surface); }
 .ctl-err { color: var(--bad); font-family: var(--mono); font-size: 11.5px; }
 .rp-new { border-top: 1px solid var(--border); margin-top: 6px; padding: 10px 8px 4px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .rp-new .label { width: 100%; }
+.tex .katex { font-size: 1.08em; color: var(--ink); }
+.tex-block { display: block; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.tex-block .katex-display { margin: 0; text-align: left; }
+.tex-block .katex-display > .katex { text-align: left; }
+.mat-name .katex { font-size: 1.12em; }
+.arch-op .katex { font-size: 1.05em; }
+.arch-residual { margin: -4px 0 10px; padding: 6px 2px; color: var(--ink-2); overflow-x: auto; overflow-y: hidden; }
+.flow-step .tex .katex { font-size: 1em; }

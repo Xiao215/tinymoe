@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { api, useFetch, useSnapshot, type RunData } from "../api";
 import { Empty } from "../components/Picker";
 import { Select } from "../components/Select";
+import { TeX } from "../components/TeX";
 import { fmtNum } from "../lib";
 import { categorical, sequential, sequentialInk } from "../theme";
 import type { Architecture as Arch, InternalsSnapshot, ModelConfigJson, ParamInfo } from "../types";
@@ -89,7 +90,8 @@ function Mat({
   rows: number;
   cols: number;
   s: number;
-  name: ReactNode;
+  /** LaTeX, e.g. W_q */
+  name: string;
   color: string;
   strips?: { n: number; color: (i: number) => string };
   cap?: number;
@@ -112,9 +114,8 @@ function Mat({
         )}
       </div>
       <figcaption>
-        <b>{name}</b>
-        <span className="num">
-          {fmtNum(rows)} × {fmtNum(cols)}
+        <span className="mat-name">
+          <TeX>{`${name} \\in \\mathbb{R}^{${rows} \\times ${cols}}`}</TeX>
         </span>
         {note && <span className="muted">{note}</span>}
       </figcaption>
@@ -122,7 +123,11 @@ function Mat({
   );
 }
 
-const Op = ({ children }: { children: ReactNode }) => <span className="arch-op">{children}</span>;
+const Op = ({ tex }: { tex: string }) => (
+  <span className="arch-op">
+    <TeX>{tex}</TeX>
+  </span>
+);
 
 function Shape({ children }: { children: ReactNode }) {
   return <span className="arch-shape num">{children}</span>;
@@ -149,7 +154,7 @@ function Attention({ c, s }: { c: ModelConfigJson; s: number }) {
         <Mat rows={c.d_model} cols={c.n_kv_heads * hd} s={s} name="W_k" color={categorical(1)} strips={{ n: c.n_kv_heads, color: kvColor }} note={`${c.n_kv_heads} kv`} />
         <Mat rows={c.d_model} cols={c.n_kv_heads * hd} s={s} name="W_v" color={categorical(1)} strips={{ n: c.n_kv_heads, color: kvColor }} note={`${c.n_kv_heads} kv`} />
         <div className="arch-mid">
-          <Op>softmax(q kᵀ / √{hd}) v</Op>
+          <Op tex={`\\operatorname{softmax}\\!\\Big(\\frac{q k^{\\top}}{\\sqrt{${hd}}}\\Big)\\, v`} />
           <div className="causal" title="causal mask: each position attends to itself and earlier ones" />
           <span className="muted">T × T per head, causal</span>
         </div>
@@ -170,13 +175,13 @@ function Attention({ c, s }: { c: ModelConfigJson; s: number }) {
 function DenseFFN({ c, s, hidden, label }: { c: ModelConfigJson; s: number; hidden: number; label: string }) {
   return (
     <div className="mat-row">
-      <Mat rows={c.d_model} cols={hidden} s={s} name="W_gate" color={categorical(2)} />
-      <Mat rows={c.d_model} cols={hidden} s={s} name="W_up" color={categorical(2)} />
+      <Mat rows={c.d_model} cols={hidden} s={s} name={"W_{\\text{gate}}"} color={categorical(2)} />
+      <Mat rows={c.d_model} cols={hidden} s={s} name={"W_{\\text{up}}"} color={categorical(2)} />
       <div className="arch-mid">
-        <Op>silu(x W_gate) ⊙ x W_up</Op>
+        <Op tex={"\\operatorname{silu}(x W_{\\text{gate}}) \\odot x W_{\\text{up}}"} />
         <span className="muted">{label}</span>
       </div>
-      <Mat rows={hidden} cols={c.d_model} s={s} name="W_down" color={categorical(2)} />
+      <Mat rows={hidden} cols={c.d_model} s={s} name={"W_{\\text{down}}"} color={categorical(2)} />
     </div>
   );
 }
@@ -196,9 +201,9 @@ function MoEBlock({ c, s, load, loadAt }: { c: ModelConfigJson; s: number; load:
         </span>
       </div>
       <div className="mat-row">
-        <Mat rows={c.d_model} cols={m.n_experts} s={s} name="W_router" color={categorical(5)} note="scores" />
+        <Mat rows={c.d_model} cols={m.n_experts} s={s} name={"W_{\\text{router}}"} color={categorical(5)} note="scores" />
         <div className="arch-mid">
-          <Op>top-{m.top_k}</Op>
+          <Op tex={`\\text{top-}${m.top_k}\\,\\sigma(x W_{\\text{router}} + b)`} />
           <span className="muted">
             {m.top_k}/{m.n_experts} experts run per token
           </span>
@@ -221,9 +226,8 @@ function MoEBlock({ c, s, load, loadAt }: { c: ModelConfigJson; s: number; load:
             })}
           </div>
           <figcaption>
-            <b>routed experts</b>
-            <span className="num">
-              {m.n_experts} × SwiGLU {c.d_model} → {m.expert_hidden} → {c.d_model}
+            <span className="mat-name">
+              <TeX>{`\\operatorname{FFN}_{0..${m.n_experts - 1}} : \\mathbb{R}^{${c.d_model}} \\to \\mathbb{R}^{${m.expert_hidden}} \\to \\mathbb{R}^{${c.d_model}}`}</TeX>
             </span>
             <span className="muted">{load ? `routed share at ${loadAt}: light = starved, mid = fair, dark = 2× fair` : "no routing snapshot yet"}</span>
           </figcaption>
@@ -231,15 +235,14 @@ function MoEBlock({ c, s, load, loadAt }: { c: ModelConfigJson; s: number; load:
         <div className="experts shared">
           <div className="expert on">S</div>
           <figcaption>
-            <b>shared</b>
-            <span className="num">
-              {c.d_model} → {m.expert_hidden * m.n_shared_experts} → {c.d_model}
+            <span className="mat-name">
+              <TeX>{`\\operatorname{FFN}_{\\text{shared}} : \\mathbb{R}^{${c.d_model}} \\to \\mathbb{R}^{${m.expert_hidden * m.n_shared_experts}} \\to \\mathbb{R}^{${c.d_model}}`}</TeX>
             </span>
           </figcaption>
         </div>
       </div>
       <div className="arch-formula">
-        y = shared(x) + Σ<sub>i ∈ top-{m.top_k}</sub> g<sub>i</sub>(x) · expert<sub>i</sub>(x)
+        <TeX block>{`y = \\operatorname{FFN}_{\\text{shared}}(x) + \\sum_{i \\,\\in\\, \\text{top-}${m.top_k}} g_i(x)\\, \\operatorname{FFN}_i(x), \\qquad g_i = \\frac{s_i}{\\sum_{j \\in \\text{top-}${m.top_k}} s_j}`}</TeX>
       </div>
     </div>
   );
@@ -375,9 +378,7 @@ export function Architecture({ run, data }: Props) {
               token ids <Shape>[B, {fmtNum(T)}]</Shape>
             </div>
             <div className="flow-step">
-              <b>embed</b> look up a row of E <Shape>
-                {fmtNum(c.vocab_size)} × {c.d_model}
-              </Shape>
+              <b>embed</b> <TeX>{`x_t = E[\\text{id}_t], \\; E \\in \\mathbb{R}^{${c.vocab_size} \\times ${c.d_model}}`}</TeX>
             </div>
             <div className="flow-wire">
               <Shape>[B, T, {c.d_model}]</Shape> residual stream
@@ -394,14 +395,15 @@ export function Architecture({ run, data }: Props) {
               </button>
             ))}
             <div className="flow-step">
-              <b>norm</b> final RMSNorm
+              <b>norm</b> <TeX>{"h = \\operatorname{RMSNorm}(x)"}</TeX>
             </div>
             <div className="flow-step">
-              <b>head</b> logits = h {c.tie_embeddings ? "Eᵀ (tied)" : "W_out"} <Shape>[B, T, {fmtNum(c.vocab_size)}]</Shape>
+              <b>head</b> <TeX>{c.tie_embeddings ? "\\text{logits} = h E^{\\top}" : "\\text{logits} = h W_{\\text{out}}"}</TeX>
+              {c.tie_embeddings && <span className="muted"> tied</span>} <Shape>[B, T, {fmtNum(c.vocab_size)}]</Shape>
             </div>
             {c.mtp.depth > 0 && (
               <div className="flow-step mtp">
-                <b>MTP</b> norm(h) ‖ norm(embed(t+1)) → proj {2 * c.d_model}→{c.d_model} → dense block → same head: predicts token t+2 · loss × {c.mtp.loss_weight} · {fmtP(mtpParams)} · training only
+                <b>MTP</b> <TeX>{`h' = \\operatorname{Block}\\big(W_{\\text{proj}} [\\operatorname{RMSNorm}(h_t) \\,;\\, \\operatorname{RMSNorm}(e_{t+1})]\\big)`}</TeX>, then the same head predicts token <TeX>{"t+2"}</TeX> · loss weight {c.mtp.loss_weight} · {fmtP(mtpParams)} · training only
               </div>
             )}
           </div>
@@ -410,8 +412,11 @@ export function Architecture({ run, data }: Props) {
           <div className="section-head">
             <h2>Block {layer.index}</h2>
             <span className="muted">
-              {fmtP(layer.attn + layer.ffn + layer.norms)} parameters · {fmtP(layer.active)} active per token · x ← x + Attn(RMSNorm(x)); x ← x + {layer.moe ? "MoE" : "FFN"}(RMSNorm(x))
+              {fmtP(layer.attn + layer.ffn + layer.norms)} parameters · {fmtP(layer.active)} active per token
             </span>
+          </div>
+          <div className="arch-residual">
+            <TeX>{`x \\leftarrow x + \\operatorname{Attn}\\big(\\operatorname{RMSNorm}(x)\\big), \\qquad x \\leftarrow x + \\operatorname{${layer.moe ? "MoE" : "FFN"}}\\big(\\operatorname{RMSNorm}(x)\\big)`}</TeX>
           </div>
           <div className="card arch-detail">
             <Attention c={c} s={s} />

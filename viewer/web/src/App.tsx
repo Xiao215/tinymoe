@@ -70,6 +70,17 @@ function useHashState(): [string, (v: string) => void] {
   return [hash, (v) => (window.location.hash = v)];
 }
 
+/** The site icon (same drawing as the favicon in index.html): three rising bars in the
+ * first three stage colours. */
+const Logo = () => (
+  <svg className="logo" width="22" height="22" viewBox="0 0 32 32" aria-hidden>
+    <rect width="32" height="32" rx="7" fill="#0b0b0b" />
+    <rect x="6" y="19" width="5" height="7" rx="1" fill="#2a78d6" />
+    <rect x="13.5" y="13" width="5" height="13" rx="1" fill="#eb6834" />
+    <rect x="21" y="7" width="5" height="19" rx="1" fill="#1baf7a" />
+  </svg>
+);
+
 export function App() {
   const { dark, toggle } = useTheme();
   const tick = useTick(4000); // new runs appear (started here or from a terminal)
@@ -93,10 +104,11 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar-row">
-          <div className="brand">
+          <a className="brand" href={run ? `#${run}/overview` : "#"} title="Overview" aria-label="TinyMoE lab: go to the overview">
+            <Logo />
             <b>TinyMoE</b>
             <span>lab</span>
-          </div>
+          </a>
           {run && (
             <nav className="tabs">
               {PANELS.map((p) => (
