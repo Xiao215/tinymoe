@@ -261,6 +261,7 @@ export function Architecture({ run, data }: Props) {
   const { data: arch, error } = useFetch(st ? `${run}/${st}/${w}` : null, () => api.architecture(run, st, w));
   const [sel, setSel] = useState(1);
   const [filter, setFilter] = useState("");
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
 
   const latest = useMemo(() => {
     const snaps = data.snapshots.filter((s) => s.files.includes("data"));
@@ -291,6 +292,21 @@ export function Architecture({ run, data }: Props) {
   const loadLi = snap?.moe?.layers.indexOf(layer.index) ?? -1;
   const load = loadLi >= 0 ? (snap?.moe?.load?.[loadLi] ?? null) : null;
   const rows = arch.params.filter((p) => !filter || p.name.includes(filter));
+  // the table, grouped: embedding & output, one group per block, the MTP head
+  const sections = new Map<string, { label: string; rows: ParamInfo[] }>();
+  const sectionOf = (name: string): [string, string] => {
+    const li = layerOf(name);
+    if (li !== null) return [`b${li}`, `block ${li} · ${info[li]?.moe ? "MoE" : "dense"}`];
+    if (name.startsWith("mtp.")) return ["mtp", "MTP head"];
+    return ["io", "embedding & output"];
+  };
+  for (const p of arch.params) {
+    const [k, label] = sectionOf(p.name);
+    if (!sections.has(k)) sections.set(k, { label, rows: [] });
+  }
+  for (const p of rows) sections.get(sectionOf(p.name)[0])!.rows.push(p);
+  const isOpen = (k: string) => (filter ? true : (toggled[k] ?? (k === "io" || k === `b${layer.index}`)));
+  const allOpen = [...sections.keys()].every(isOpen);
   const mtpParams = arch.params.filter((p) => p.name.startsWith("mtp.")).reduce((a, p) => a + p.numel, 0);
 
   return (
@@ -441,9 +457,14 @@ export function Architecture({ run, data }: Props) {
           {rows.length} of {arch.params.length} · PyTorch shapes (out × in)
         </span>
         <span className="grow" />
+        {!filter && (
+          <button onClick={() => setToggled(Object.fromEntries([...sections.keys()].map((k) => [k, !allOpen])))}>
+            {allOpen ? "collapse all" : "expand all"}
+          </button>
+        )}
         <input placeholder="filter, e.g. layers.3 or w_gate" value={filter} onChange={(e) => setFilter(e.target.value)} />
       </div>
-      <div className="card scroll-x" style={{ maxHeight: 420, overflowY: "auto", padding: 0 }}>
+      <div className="card params-card">
         <table className="report params">
           <thead>
             <tr>
@@ -454,19 +475,45 @@ export function Architecture({ run, data }: Props) {
               <th className="r">share</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((p: ParamInfo) => (
-              <tr key={p.name}>
-                <td className="mono">{p.name}</td>
-                <td>
-                  <span className="dot" style={{ background: groupColor(groupOf(p.name)) }} /> {GROUPS.find((g) => g.id === groupOf(p.name))!.label}
-                </td>
-                <td className="mono">{dims(p.shape)}</td>
-                <td className="r num">{fmtNum(p.numel)}</td>
-                <td className="r num muted">{pct(p.numel, total)}</td>
-              </tr>
-            ))}
-          </tbody>
+          {[...sections].map(([k, sec]) => {
+            if (!sec.rows.length) return null;
+            const open = isOpen(k);
+            const n = sec.rows.reduce((a, p) => a + p.numel, 0);
+            return (
+              <tbody key={k} className={open ? "open" : ""}>
+                <tr className="grp" onClick={() => !filter && setToggled((t) => ({ ...t, [k]: !open }))} aria-expanded={open}>
+                  <td colSpan={3}>
+                    <span className="grp-chev" aria-hidden>
+                      ▸
+                    </span>
+                    <b>{sec.label}</b> <span className="muted">{sec.rows.length} tensors</span>
+                  </td>
+                  <td className="r num">{fmtP(n)}</td>
+                  <td className="r num muted">{pct(n, total)}</td>
+                </tr>
+                {open &&
+                  sec.rows.map((p) => (
+                    <tr key={p.name}>
+                      <td className="mono">
+                        {p.name.split(".").map((part, i) => (
+                          <span key={i}>
+                            {i > 0 && "."}
+                            {i > 0 && <wbr />}
+                            {part}
+                          </span>
+                        ))}
+                      </td>
+                      <td>
+                        <span className="dot" style={{ background: groupColor(groupOf(p.name)) }} /> {GROUPS.find((g) => g.id === groupOf(p.name))!.label}
+                      </td>
+                      <td className="mono">{dims(p.shape)}</td>
+                      <td className="r num">{fmtNum(p.numel)}</td>
+                      <td className="r num muted">{pct(p.numel, total)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            );
+          })}
         </table>
       </div>
     </div>
