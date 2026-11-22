@@ -2,7 +2,8 @@
 
 tinymoe info [overrides]                      detected capabilities + resolved runtime
 tinymoe stage <name> [overrides]              run one stage (lineage from the manifest)
-tinymoe pipeline <pipeline.yaml> [overrides]  run every stage of a pipeline
+tinymoe pipeline <pipeline.yaml> [overrides]  run every stage of a pipeline (--until STAGE)
+tinymoe pause <run_dir> [--after-stage]       checkpoint and stop a running pipeline
 tinymoe bench <pipeline.yaml> [overrides]     time/memory estimates per stage
 tinymoe report <run_dir>                      cross-stage summary table
 tinymoe viewer --runs runs/                   live viewer (FastAPI + React)
@@ -43,8 +44,21 @@ def _cmd_stage(args: argparse.Namespace) -> int:
 def _cmd_pipeline(args: argparse.Namespace) -> int:
     from tinymoe.pipeline import run_pipeline
 
-    run_dir = run_pipeline(Path(args.path), args.overrides)
+    run_dir = run_pipeline(Path(args.path), args.overrides, until=args.until)
     print(f"run directory: {run_dir}")
+    return 0
+
+
+def _cmd_pause(args: argparse.Namespace) -> int:
+    from tinymoe import control
+
+    run_dir = Path(args.run_dir)
+    if not (run_dir / "manifest.json").exists():
+        print(f"{run_dir} is not a run directory")
+        return 2
+    control.request_pause(run_dir, "after_stage" if args.after_stage else "now")
+    alive = control.process_info(run_dir) is not None
+    print("pause requested" if alive else "pause requested (no pipeline is running for this run)")
     return 0
 
 
@@ -64,7 +78,7 @@ def _cmd_bench(args: argparse.Namespace) -> int:
 def _cmd_viewer(args: argparse.Namespace) -> int:
     from viewer.server.app import serve
 
-    serve(Path(args.runs), args.host, args.port)
+    serve(Path(args.runs), args.host, args.port, control=args.control)
     return 0
 
 
@@ -100,9 +114,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=_cmd_stage)
 
     p = sub.add_parser("pipeline", help="run a pipeline YAML")
+    p.add_argument("--until", default=None, metavar="STAGE", help="stop after this stage")
     p.add_argument("path")
     p.add_argument("overrides", nargs="*")
     p.set_defaults(fn=_cmd_pipeline)
+
+    p = sub.add_parser("pause", help="ask a running pipeline to pause (checkpoint, then stop)")
+    p.add_argument("run_dir")
+    p.add_argument("--after-stage", action="store_true", help="finish the current stage first")
+    p.set_defaults(fn=_cmd_pause)
 
     p = sub.add_parser("bench", help="benchmark every stage of a pipeline")
     p.add_argument("path")
@@ -118,6 +138,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--runs", default="runs")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8765)
+    p.add_argument(
+        "--control",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="start/pause/resume runs from the page (default: on for a loopback host only)",
+    )
     p.set_defaults(fn=_cmd_viewer)
 
     p = sub.add_parser("chat", help="chat with a checkpoint")

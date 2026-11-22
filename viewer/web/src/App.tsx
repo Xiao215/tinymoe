@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, useCompare, useFetch, useRun, type RunData } from "./api";
+import { api, useCompare, useFetch, useRun, useTick, type RunData } from "./api";
 import { RunPicker } from "./components/RunPicker";
 import { Timeline } from "./components/Timeline";
 import { Anatomy } from "./panels/Anatomy";
+import { Architecture } from "./panels/Architecture";
 import { Attention } from "./panels/Attention";
 import { Embeddings } from "./panels/Embeddings";
 import { Generations } from "./panels/Generations";
@@ -42,6 +43,7 @@ function ScalarsPanel({ data, compare }: PanelProps) {
 export const PANELS: PanelDef[] = [
   { id: "overview", title: "Overview", render: (p) => <Overview run={p.run} data={p.data} onOpen={p.open} /> },
   { id: "metrics", title: "Metrics", render: (p) => <ScalarsPanel {...p} /> },
+  { id: "model", title: "Architecture", render: (p) => <Architecture run={p.run} data={p.data} /> },
   { id: "anatomy", title: "Anatomy", snap: true, render: (p) => <Anatomy run={p.run} snapshot={p.snapshot} version={p.data.version} /> },
   { id: "attention", title: "Attention", snap: true, render: (p) => <Attention run={p.run} snapshot={p.snapshot} version={p.data.version} /> },
   { id: "moe", title: "MoE", snap: true, render: (p) => <MoE run={p.run} data={p.data} snapshot={p.snapshot} /> },
@@ -56,7 +58,7 @@ export const PANELS: PanelDef[] = [
   { id: "report", title: "Report", render: (p) => <Report run={p.run} data={p.data} /> },
 ];
 
-const ALIASES: Record<string, string> = { scalars: "metrics" };
+const ALIASES: Record<string, string> = { scalars: "metrics", architecture: "model" };
 
 function useHashState(): [string, (v: string) => void] {
   const [hash, setHash] = useState(() => window.location.hash.slice(1));
@@ -70,7 +72,9 @@ function useHashState(): [string, (v: string) => void] {
 
 export function App() {
   const { dark, toggle } = useTheme();
-  const runs = useFetch("runs", api.runs);
+  const tick = useTick(4000); // new runs appear (started here or from a terminal)
+  const runs = useFetch(`runs/${tick}`, api.runs);
+  const control = useFetch("control", api.control);
   const [hash, setHash] = useHashState();
   const [hashRun, rawPanel] = hash.split("/");
   const hashPanel = ALIASES[rawPanel ?? ""] ?? rawPanel;
@@ -112,6 +116,7 @@ export function App() {
                 setHash(`${id}/${panel.id}`);
               }}
               onToggleCompare={(id) => setCompare((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))}
+              control={control.data}
             />
             {current && (
               <div className="meta">

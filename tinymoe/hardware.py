@@ -445,6 +445,11 @@ def memory_bytes(device: torch.device) -> dict[str, int]:
     return {"allocated": rss, "peak": rss}
 
 
+def shape_only_device() -> torch.device:
+    """Tensors with shapes and dtypes but no storage: build a model just to describe it."""
+    return torch.device("meta")
+
+
 def host_device() -> torch.device:
     """Host memory: where checkpoints are staged before moving to the run device."""
     return torch.device(_CPU)

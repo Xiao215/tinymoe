@@ -61,6 +61,12 @@ stages and resumes the current one from its last checkpoint:
 uv run tinymoe pipeline configs/pipeline/mac.yaml run.run_id=<the run's id>
 ```
 
+Or control it from the viewer: the Overview has **Pause now** (checkpoint after the current
+step, then stop), **Stop after this stage**, and **Resume / Start next stage** with an
+optional "run until" stage; the run menu has **New run**. From a terminal, the same
+requests are `tinymoe pause runs/<id> [--after-stage]` and
+`tinymoe pipeline <yaml> --until <stage> run.run_id=<id>`.
+
 ### Measured bench (M1 Pro 16 GB, `configs/pipeline/mac.yaml`)
 
 Model: 106.3M total / 29.2M active parameters, fp16 autocast with loss scaling, MPS. Each
@@ -138,6 +144,7 @@ server-sent events while a run trains, and offline on finished runs. Panels:
 | Overview | the landing page: run status with stage ETA; headline numbers with their change; one card per stage (steps, time, pass@1 vs the previous stage, the number that says whether the stage did its job); key charts; math pass@1 by difficulty; an event feed with evals, stage changes and detected stalls, fp16 overflow skips, loss spikes and dead experts |
 | timeline | all stages on one global-step axis; a snapshot scrubber drives the internals panels (Anatomy, Attention, MoE, Logit lens, Embeddings) |
 | Metrics | small multiples grouped by area (filter by substring or `/regex/`), x axis as global step or wall clock, linear/log, EMA smoothing; loss per data source, val loss, LR, grad norm, update/weight ratio, throughput, MFU, MoE balance, math pass@1/pass@k per difficulty, think length, DPO margins, RL reward/KL/clip/entropy, distillation; overlay of other runs |
+| Architecture | the model as built for a stage: every tensor's real shape (built on PyTorch's meta device, no weights loaded), the parameter budget by component, the forward pass block by block, and each block's matrices drawn to scale: grouped-query heads, SwiGLU, router, expert grid shaded by measured load |
 | Anatomy | the layer stack from the model config: heads coloured by attention entropy, experts by load, residual norms; click a layer for details |
 | Attention | per layer/head heatmaps on probe prompts and token-to-token arcs |
 | MoE | load (layer × expert and over time), tokens coloured by expert, specialisation by token type, co-activation, router bias, dead-expert alerts, RL routing-replay mismatch |
@@ -148,6 +155,12 @@ server-sent events while a run trains, and offline on finished runs. Panels:
 | Report | eval summary per stage, pass@1 per bucket, distillation table, context-extension and RL-calibration results |
 
 For frontend development: `cd viewer/web && npm run dev` (proxies `/api` to a running viewer).
+
+Run control (start, pause, resume) is on when the viewer listens on localhost, which is
+the default; `--control` / `--no-control` override that. It only answers requests
+addressed to localhost with a JSON body, so another web page cannot drive it. Pipelines
+started from the page run detached (`caffeinate -i` on macOS), log to
+`runs/<id>/pipeline.log`, and keep running if the viewer stops.
 
 ## Experiments to try
 

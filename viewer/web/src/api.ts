@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  Architecture,
+  ControlInfo,
+  ControlState,
   Manifest,
+  PauseWhen,
   MetricRecord,
   MetricsResponse,
   RunSummary,
@@ -11,6 +15,26 @@ import type {
 export async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${path}`);
+  return (await res.json()) as T;
+}
+
+/** POST a JSON body; the server's `detail` becomes the error message. */
+export async function postJSON<T>(path: string, body: unknown = {}): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const j = (await res.json()) as { detail?: unknown };
+      if (typeof j.detail === "string") detail = j.detail;
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(detail);
+  }
   return (await res.json()) as T;
 }
 
@@ -29,7 +53,44 @@ export const api = {
   artifacts: (run: string) => getJSON<string[]>(`/api/runs/${enc(run)}/artifacts`),
   artifact: <T>(run: string, name: string) =>
     getJSON<T>(`/api/runs/${enc(run)}/artifacts/${enc(name)}`),
+  architecture: (run: string, stage: string | null, which: string) =>
+    getJSON<Architecture>(
+      `/api/runs/${enc(run)}/architecture?which=${enc(which)}${stage ? `&stage=${enc(stage)}` : ""}`,
+    ),
+  control: () => getJSON<ControlInfo>("/api/control"),
+  controlState: (run: string) => getJSON<ControlState>(`/api/runs/${enc(run)}/control`),
+  start: (pipeline: string, until: string | null) =>
+    postJSON<{ run_id: string }>("/api/control/start", { pipeline, until }),
+  resume: (run: string, until: string | null) =>
+    postJSON<{ run_id: string }>(`/api/runs/${enc(run)}/control/resume`, { until }),
+  pause: (run: string, when: PauseWhen) =>
+    postJSON<{ ok: boolean }>(`/api/runs/${enc(run)}/control/pause`, { when }),
+  cancelPause: (run: string) => postJSON<{ ok: boolean }>(`/api/runs/${enc(run)}/control/cancel`),
 };
+
+/** Re-render every `ms` while the tab is visible (cheap polling for local state). */
+export function useTick(ms: number): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") setTick((t) => t + 1);
+    }, ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return tick;
+}
+
+/** Whether this run's pipeline is alive, what it was asked to do, and its log tail.
+ * Polled; `refresh` forces a read right after an action. */
+export function useControl(run: string | null): {
+  state: ControlState | null;
+  refresh: () => void;
+} {
+  const [bump, setBump] = useState(0);
+  const tick = useTick(2000);
+  const { data } = useFetch(run ? `ctl/${run}/${tick}/${bump}` : null, () => api.controlState(run!));
+  return { state: data, refresh: () => setBump((b) => b + 1) };
+}
 
 /** Fetch once per key; `null` while loading, error message on failure. */
 export function useFetch<T>(

@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from tinymoe import hardware
+from tinymoe import control, hardware
 from tinymoe.config import (
     STAGE_ORDER,
     BatchPlan,
@@ -311,6 +311,9 @@ def run_stage(cfg: RunConfig, run_dir: Path | None = None) -> dict[str, Any]:
     module = importlib.import_module(f"tinymoe.stages.{ctx.stage}")
     try:
         summary: dict[str, Any] = module.run(ctx)
+    except control.StopRequested:
+        ctx.logger.stage_paused(ctx.stage)
+        raise
     except Exception as exc:
         ctx.logger.stage_failed(ctx.stage, repr(exc))
         raise

@@ -201,6 +201,14 @@ class RunLogger:
 
         self.update_manifest(fill)
 
+    def stage_paused(self, stage: str) -> None:
+        def fill(m: dict[str, Any]) -> None:
+            self._stage_entry(m, stage).update(
+                status="paused", paused=dt.datetime.now().isoformat(timespec="seconds")
+            )
+
+        self.update_manifest(fill)
+
     def stage_failed(self, stage: str, error: str) -> None:
         def fill(m: dict[str, Any]) -> None:
             self._stage_entry(m, stage).update(status="failed", error=error)

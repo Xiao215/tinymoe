@@ -92,6 +92,7 @@ class RunStore:
                         {"name": s["name"], "status": s.get("status", "unknown")}
                         for s in m.get("stages", [])
                     ],
+                    "planned": m.get("pipeline_stages"),
                     "mtime": (path / "manifest.json").stat().st_mtime,
                 }
             )

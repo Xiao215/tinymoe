@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Chevron, usePopover } from "./Select";
+import { api } from "../api";
+import { Chevron, Select, usePopover } from "./Select";
 import { STAGE_ORDER, stageColor } from "../theme";
-import type { RunSummary } from "../types";
+import type { ControlInfo, RunSummary } from "../types";
 
 interface Props {
   runs: RunSummary[];
@@ -9,13 +10,69 @@ interface Props {
   compare: string[];
   onOpen: (id: string) => void;
   onToggleCompare: (id: string) => void;
+  control: ControlInfo | null;
 }
 
 const runStatus = (r: RunSummary): string => {
   if (r.stages.some((s) => s.status === "failed")) return "failed";
   if (r.stages.some((s) => s.status === "running")) return "running";
+  if (r.stages.some((s) => s.status === "paused")) return "paused";
+  const done = new Set(r.stages.filter((s) => s.status === "done").map((s) => s.name));
+  if (r.planned?.some((s) => !done.has(s))) return "stopped";
   return r.stages.length ? "done" : "pending";
 };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Start a pipeline as a new run; opens it once its manifest exists. */
+function NewRun({ control, onOpen }: { control: ControlInfo; onOpen: (id: string) => void }) {
+  const [file, setFile] = useState(control.pipelines[0]?.file ?? "");
+  const [until, setUntil] = useState("");
+  const [state, setState] = useState<string | null>(null);
+  const p = control.pipelines.find((x) => x.file === file);
+  if (!p) return null;
+  const start = async () => {
+    setState("starting…");
+    try {
+      const { run_id } = await api.start(file, until || null);
+      for (let i = 0; i < 120; i++) {
+        if ((await api.runs()).some((r) => r.id === run_id)) {
+          setState(null);
+          onOpen(run_id);
+          return;
+        }
+        await sleep(1000);
+      }
+      setState(`${run_id} started but has not written a manifest yet`);
+    } catch (e) {
+      setState(e instanceof Error ? e.message : String(e));
+    }
+  };
+  return (
+    <div className="rp-new" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <span className="label">new run</span>
+      <Select
+        value={file}
+        options={control.pipelines.map((x) => ({ value: x.file, label: x.name, hint: `${x.stages.length} stages` }))}
+        onChange={(v) => {
+          setFile(v);
+          setUntil("");
+        }}
+      />
+      <Select
+        label="until"
+        value={until}
+        options={[{ value: "", label: "the end" }, ...p.stages.slice(0, -1).map((s) => ({ value: s, label: `after ${s}` }))]}
+        onChange={setUntil}
+      />
+      <button className="btn primary" disabled={!!control.busy || state === "starting…"} onClick={start} title={control.busy ? `${control.busy} is running` : `tinymoe pipeline configs/pipeline/${file}`}>
+        Start
+      </button>
+      {control.busy && <span className="muted">{control.busy} is running; pause it first</span>}
+      {state && <span className={state === "starting…" ? "muted" : "ctl-err"}>{state}</span>}
+    </div>
+  );
+}
 
 const when = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -37,7 +94,7 @@ function StageStrip({ r }: { r: RunSummary }) {
 
 /** Run switcher: a popover listing runs with their lifecycle at a glance, plus an
  * overlay toggle per run (other runs draw dashed on the metric charts). */
-export function RunPicker({ runs, run, compare, onOpen, onToggleCompare }: Props) {
+export function RunPicker({ runs, run, compare, onOpen, onToggleCompare, control }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const [open, setOpen] = usePopover(root);
   const [active, setActive] = useState(0);
@@ -109,7 +166,9 @@ export function RunPicker({ runs, run, compare, onOpen, onToggleCompare }: Props
                   <span className="rp-sub">
                     <StageStrip r={r} />
                     <span>
-                      {st === "running" ? `running ${r.stages.find((s) => s.status === "running")?.name}` : `${r.stages.length}/${STAGE_ORDER.length} stages`}
+                      {st === "running"
+                        ? `running ${r.stages.find((s) => s.status === "running")?.name}`
+                        : `${r.stages.filter((s) => s.status === "done").length}/${r.planned?.length ?? STAGE_ORDER.length} stages${st === "paused" || st === "stopped" ? ` · ${st}` : ""}`}
                     </span>
                     <span className="rp-dot">·</span>
                     <span>{when(r.created)}</span>
@@ -134,6 +193,15 @@ export function RunPicker({ runs, run, compare, onOpen, onToggleCompare }: Props
             );
           })}
           {!runs.length && <div className="rp-empty muted">no runs yet</div>}
+          {control?.enabled && (
+            <NewRun
+              control={control}
+              onOpen={(id) => {
+                onOpen(id);
+                setOpen(false);
+              }}
+            />
+          )}
         </div>
       )}
     </div>

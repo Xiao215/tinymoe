@@ -12,6 +12,8 @@ export interface RunSummary {
   name: string;
   created: string | null;
   stages: StageStatus[];
+  /** stages of the pipeline that made the run (absent for older runs) */
+  planned?: string[] | null;
   mtime: number;
 }
 
@@ -134,6 +136,85 @@ export interface Manifest {
   hardware?: Record<string, unknown>;
   runtime?: Record<string, unknown>;
   stages: ManifestStage[];
+  pipeline?: string;
+  pipeline_stages?: string[];
+  pipeline_args?: string[];
+}
+
+// ------------------------------------------------------------- run control
+
+export interface PipelineInfo {
+  name: string;
+  file: string;
+  stages: string[];
+}
+
+export interface ControlInfo {
+  enabled: boolean;
+  pipelines: PipelineInfo[];
+  busy: string | null;
+}
+
+export type PauseWhen = "now" | "after_stage";
+
+export interface ControlState {
+  enabled: boolean;
+  running: boolean;
+  starting: boolean;
+  pid: number | null;
+  started: string | null;
+  pending: PauseWhen | null;
+  pipeline: string | null;
+  pipeline_stages: string[];
+  busy: string | null;
+  log: string[];
+}
+
+// ------------------------------------------------------------ architecture
+
+export interface ParamInfo {
+  name: string;
+  shape: number[];
+  numel: number;
+}
+
+export interface ModelConfigJson {
+  vocab_size: number;
+  d_model: number;
+  n_layers: number;
+  n_heads: number;
+  n_kv_heads: number;
+  head_dim: number | null;
+  ffn_hidden: number;
+  max_seq_len: number;
+  rope_base: number;
+  rope_scaling: { type: string; factor: number };
+  qk_norm: boolean;
+  tie_embeddings: boolean;
+  sliding_window: number | null;
+  global_every: number;
+  moe: {
+    enabled: boolean;
+    n_experts: number;
+    top_k: number;
+    n_shared_experts: number;
+    expert_hidden: number;
+    n_dense_layers: number;
+    score_func: string;
+    balance: string;
+  };
+  mtp: { depth: number; loss_weight: number };
+}
+
+export interface Architecture {
+  stage: string;
+  which: "model" | "student";
+  config: ModelConfigJson;
+  counts: Record<string, number>;
+  params: ParamInfo[];
+  buffers: ParamInfo[];
+  seq_len: number | null;
+  tokens_per_step: number | null;
 }
 
 export interface RolloutExample {

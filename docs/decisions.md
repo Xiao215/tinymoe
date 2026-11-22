@@ -196,3 +196,29 @@ are unchanged. The final bench estimates 7.3 h with a 7.8 GB peak (table in the 
 The earlier 3.3k tok/s in D12 timed forward and backward only, on a fresh router, with an
 uncapped padded buffer. A full step at the probed worst-case micro batch is the number
 that sizes a run.
+
+## D17 — Run control through files, and only from localhost
+
+The viewer can start, pause and resume pipelines. It does this through two files in the
+run directory instead of talking to the training process directly:
+
+- `control.json` holds a pause request. `now` makes the trainer save a checkpoint after the
+  current step and stop; the stage is marked `paused`. `after_stage` lets the stage finish
+  and stops the pipeline before the next one. The trainer reads the file once per step (on
+  rank 0, then all-reduced under DDP so every rank stops at the same step).
+- `process.json` is written by the pipeline while it runs (pid, pipeline, argv), so the
+  viewer can tell whether a run is alive regardless of who started it.
+
+Resuming is the existing mechanism: rerun the pipeline with the same `run.run_id`. The
+manifest now records the pipeline file, its stage list and the overrides it ran with, so
+the viewer resumes with the same overrides. A pause therefore costs at most one step plus a
+checkpoint write, and a resumed stage is bit-identical to an uninterrupted one (tested).
+
+Starting processes from a web page is a remote-code-execution surface, so the endpoints are
+narrow. The viewer only starts a pipeline YAML from `configs/pipeline/`, with an optional
+`--until` stage from that pipeline and a generated or existing run id; no free-form
+overrides come from the request. Control is on by default only when the viewer binds a
+loopback host. Requests must carry a loopback `Host` header (a DNS-rebinding page cannot
+reach them), a matching `Origin` if one is sent, and a JSON content type (a cross-site form
+cannot send one without a CORS preflight, which the viewer never grants). Only one pipeline
+runs at a time, because they would share one device.

@@ -21,7 +21,7 @@ from typing import Any, Protocol
 import torch
 from torch import nn
 
-from tinymoe import hardware
+from tinymoe import control, hardware
 from tinymoe.config import BatchPlan, TrainConfig
 from tinymoe.hardware import Runtime
 from tinymoe.logging import RunLogger
@@ -348,14 +348,29 @@ class Trainer:
                 distributed.barrier()
             if self.hooks.evaluate and ((step + 1) % self.cfg.eval_interval == 0 or done):
                 result.eval_metrics = self._evaluate(self.step_offset + step + 1)
-            if (step + 1) % self.cfg.ckpt_interval == 0 and not done:
+            saved = (step + 1) % self.cfg.ckpt_interval == 0 and not done
+            if saved:
                 self.save_checkpoint(step + 1)
+            if not done and self._pause_requested():
+                if not saved:
+                    self.save_checkpoint(step + 1)
+                log.info("[%s] pause requested: saved step %d, stopping", self.stage, step + 1)
+                raise control.StopRequested(f"{self.stage} paused at step {step + 1}")
         if self.save_final:
             result.checkpoint = self.ckpt_dir / "final.pt"
             if self.dist.is_main:
                 checkpoint.save_model(result.checkpoint, self.raw_model, {"step": result.step})
             distributed.barrier()
         return result
+
+    def _pause_requested(self) -> bool:
+        """A "pause now" request in the run directory (rank 0 reads, every rank agrees)."""
+        asked = self.dist.is_main and control.pending(self.logger.run_dir) == "now"
+        if not distributed.is_initialized():
+            return asked
+        flag = torch.tensor([1.0 if asked else 0.0], device=self.runtime.device)
+        distributed.all_reduce_sum_(flag)
+        return bool(flag.item() > 0)
 
     def _evaluate(self, step: int) -> dict[str, float]:
         assert self.hooks.evaluate is not None

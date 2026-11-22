@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { RunData } from "../api";
+import { useControl, type RunData } from "../api";
+import { RunControl, runPosition } from "../components/RunControl";
 import { Delta, MetricChart } from "../components/MetricChart";
 import { Empty } from "../components/Picker";
 import { fmtClock, fmtDur, fmtNum, lastWith, median, metricKeys, stageStarts } from "../lib";
@@ -357,8 +358,9 @@ function BucketGrid({ records }: { records: MetricRecord[] }) {
 // ---------------------------------------------------------------- page
 
 /** Landing page: where the run is, what each stage bought, what to look at next. */
-export function Overview({ data, onOpen }: Props) {
+export function Overview({ run, data, onOpen }: Props) {
   const { manifest, records, timeline } = data;
+  const { state: ctl, refresh } = useControl(run);
   const now = useNow();
   const starts = useMemo(() => stageStarts(manifest), [manifest]);
   const keys = useMemo(() => metricKeys(records), [records]);
@@ -370,9 +372,16 @@ export function Overview({ data, onOpen }: Props) {
   const feed = useMemo(() => events(records, stages, starts, created, manifest?.runtime), [records, stages, starts, created, manifest?.runtime]);
 
   if (!manifest) return <Empty>Loading run…</Empty>;
-  if (!current) return <Empty>No stage has started yet.</Empty>;
+  if (!current)
+    return (
+      <div>
+        <RunControl run={run} manifest={manifest} ctl={ctl} refresh={refresh} />
+        <Empty>No stage has started yet.</Empty>
+      </div>
+    );
 
-  const running = current.status === "running";
+  const position = runPosition(manifest, ctl);
+  const running = position.status === "running" && current.status === "running";
   const cur = records.filter((r) => r.stage === current.name);
   const step = cur.length ? Math.max(...cur.map((r) => r.step)) : 0;
   const max = cfgNum(current, "train", "max_steps");
@@ -409,9 +418,9 @@ export function Overview({ data, onOpen }: Props) {
         <div>
           <div className="run-title">
             <h1>{manifest.run_id}</h1>
-            <span className={`status ${current.status}`}>
+            <span className={`status ${position.status}`}>
               <i />
-              {running ? `training ${current.name}` : current.status === "done" ? "finished" : current.status}
+              {position.label}
             </span>
           </div>
           <div className="run-sub">
@@ -475,6 +484,7 @@ export function Overview({ data, onOpen }: Props) {
           ) : null}
         </div>
       </div>
+      <RunControl run={run} manifest={manifest} ctl={ctl} refresh={refresh} />
       {max && running ? (
         <div className="progress" title={`${current.name}: ${step} of ${max} steps`}>
           <span style={{ width: `${Math.min(100, (100 * step) / max)}%`, background: stageColor(current.name) }} />
